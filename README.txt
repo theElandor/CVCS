@@ -1,1 +1,0 @@
-Computer Vision and Cognitive System project.
