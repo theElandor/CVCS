@@ -1,14 +1,16 @@
 
 # Table of Contents
 
-1.  [Papers](#org19dc195)
-    1.  [Low relevance](#org3a04c47)
-    2.  [Medium relevance](#org39f5801)
-    3.  [High relevance](#org01fe23b)
+1.  [Papers](#org6cc9d31)
+    1.  [Low relevance](#org95c0971)
+    2.  [Medium relevance](#orgcd13318)
+    3.  [High relevance](#orgcff2d32)
+    4.  [Transformers](#org9eda589)
+    5.  [Datasets](#orga72e69e)
 
 
 
-<a id="org19dc195"></a>
+<a id="org6cc9d31"></a>
 
 # Papers
 
@@ -17,7 +19,7 @@ relevance with respect to our work/project.
 The "papers" directory is filled with even more articles that might result usefull.
 
 
-<a id="org3a04c47"></a>
+<a id="org95c0971"></a>
 
 ## Low relevance
 
@@ -47,7 +49,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     27–28 June 2015.
 
 
-<a id="org39f5801"></a>
+<a id="orgcd13318"></a>
 
 ## Medium relevance
 
@@ -60,7 +62,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     pp. 3746–3749.
 
 
-<a id="org01fe23b"></a>
+<a id="orgcff2d32"></a>
 
 ## High relevance
 
@@ -77,4 +79,22 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
 
 -   Popescu, D.; Ichim, L.; Stoican, F. Unmanned aerial vehicle systems for remote estimation of flooded areas
     based on complex image processing;
+
+
+<a id="org9eda589"></a>
+
+## Transformers
+
+-   Transformers for Image Recognition at Scale: <https://doi.org/10.48550/arXiv.2010.11929>
+-   Fatema-E- Jannat, Andrew R. Willis;Improving Classification of Remotely Sensed
+    Images with the Swin Transformer
+-   Bazi, Y.; Bashmal, L.; Rahhal, M.M.A.; Dayil, R.A.; Ajlan, N.A. Vision Transformers for Remote Sensing Image Classification. Remote Sens. 2021, 13, 516. <https://doi.org/10.3390/rs13030516>
+
+
+<a id="orga72e69e"></a>
+
+## Datasets
+
+-   <https://github.com/phelber/eurosat>
+-   <https://www.kaggle.com/datasets/virajkadam/sen12flood>
 
