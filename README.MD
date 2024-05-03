@@ -1,16 +1,16 @@
 
 # Table of Contents
 
-1.  [Papers](#org6cc9d31)
-    1.  [Low relevance](#org95c0971)
-    2.  [Medium relevance](#orgcd13318)
-    3.  [High relevance](#orgcff2d32)
-    4.  [Transformers](#org9eda589)
-    5.  [Datasets](#orga72e69e)
+1.  [Papers](#orgbba7230)
+    1.  [Low relevance](#orgb3d6574)
+    2.  [Medium relevance](#orgedcf3ca)
+    3.  [High relevance](#orgd4d49a9)
+    4.  [Transformers](#orgf235be2)
+    5.  [Datasets](#org61e4b09)
 
 
 
-<a id="org6cc9d31"></a>
+<a id="orgbba7230"></a>
 
 # Papers
 
@@ -19,7 +19,7 @@ relevance with respect to our work/project.
 The "papers" directory is filled with even more articles that might result usefull.
 
 
-<a id="org95c0971"></a>
+<a id="orgb3d6574"></a>
 
 ## Low relevance
 
@@ -49,7 +49,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     27–28 June 2015.
 
 
-<a id="orgcd13318"></a>
+<a id="orgedcf3ca"></a>
 
 ## Medium relevance
 
@@ -62,7 +62,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     pp. 3746–3749.
 
 
-<a id="orgcff2d32"></a>
+<a id="orgd4d49a9"></a>
 
 ## High relevance
 
@@ -81,7 +81,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     based on complex image processing;
 
 
-<a id="org9eda589"></a>
+<a id="orgf235be2"></a>
 
 ## Transformers
 
@@ -89,12 +89,15 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
 -   Fatema-E- Jannat, Andrew R. Willis;Improving Classification of Remotely Sensed
     Images with the Swin Transformer
 -   Bazi, Y.; Bashmal, L.; Rahhal, M.M.A.; Dayil, R.A.; Ajlan, N.A. Vision Transformers for Remote Sensing Image Classification. Remote Sens. 2021, 13, 516. <https://doi.org/10.3390/rs13030516>
+-   Mohammad Barr, Enhancing the ability of convolutional neural networks for remote
+    sensing image segmentation using transformers <https://doi.org/10.1007/s00521-024-09743-6>
 
 
-<a id="orga72e69e"></a>
+<a id="org61e4b09"></a>
 
 ## Datasets
 
--   <https://github.com/phelber/eurosat>
--   <https://www.kaggle.com/datasets/virajkadam/sen12flood>
+-   EuroSat: <https://github.com/phelber/eurosat>
+-   Flood Detection: <https://www.kaggle.com/datasets/virajkadam/sen12flood>
+-   DeepGlobe: <https://paperswithcode.com/dataset/deepglobe>
 
