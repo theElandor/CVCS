@@ -1,16 +1,16 @@
 
 # Table of Contents
 
-1.  [Papers](#orgbba7230)
-    1.  [Low relevance](#orgb3d6574)
-    2.  [Medium relevance](#orgedcf3ca)
-    3.  [High relevance](#orgd4d49a9)
-    4.  [Transformers](#orgf235be2)
-    5.  [Datasets](#org61e4b09)
+1.  [Papers](#org8604400)
+    1.  [Low relevance](#orgb4b6c9c)
+    2.  [Medium relevance](#org800773f)
+    3.  [High relevance](#org0589921)
+    4.  [Transformers](#org19c7153)
+    5.  [Datasets](#org04fe360)
 
 
 
-<a id="orgbba7230"></a>
+<a id="org8604400"></a>
 
 # Papers
 
@@ -19,7 +19,7 @@ relevance with respect to our work/project.
 The "papers" directory is filled with even more articles that might result usefull.
 
 
-<a id="orgb3d6574"></a>
+<a id="orgb4b6c9c"></a>
 
 ## Low relevance
 
@@ -49,7 +49,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     27–28 June 2015.
 
 
-<a id="orgedcf3ca"></a>
+<a id="org800773f"></a>
 
 ## Medium relevance
 
@@ -62,7 +62,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     pp. 3746–3749.
 
 
-<a id="orgd4d49a9"></a>
+<a id="org0589921"></a>
 
 ## High relevance
 
@@ -81,7 +81,7 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
     based on complex image processing;
 
 
-<a id="orgf235be2"></a>
+<a id="org19c7153"></a>
 
 ## Transformers
 
@@ -91,9 +91,10 @@ media and crowdsourcing data. Comput. Geosci. 2018, 111, 139–147.
 -   Bazi, Y.; Bashmal, L.; Rahhal, M.M.A.; Dayil, R.A.; Ajlan, N.A. Vision Transformers for Remote Sensing Image Classification. Remote Sens. 2021, 13, 516. <https://doi.org/10.3390/rs13030516>
 -   Mohammad Barr, Enhancing the ability of convolutional neural networks for remote
     sensing image segmentation using transformers <https://doi.org/10.1007/s00521-024-09743-6>
+-   Original U-net paper (conv only): <https://doi.org/10.1007/978-3-319-24574-4_28>
 
 
-<a id="org61e4b09"></a>
+<a id="org04fe360"></a>
 
 ## Datasets
 
