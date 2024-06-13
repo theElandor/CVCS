@@ -1,12 +1,12 @@
 
 # Table of Contents
 
-1.  [Important Papers](#org9e61eb8)
-    1.  [Datasets](#orgdf22db1)
+1.  [Important Papers](#orgfb6d168)
+    1.  [Datasets](#org7a0c276)
 
 
 
-<a id="org9e61eb8"></a>
+<a id="orgfb6d168"></a>
 
 # Important Papers
 
@@ -23,12 +23,12 @@
 -   "Cross shaped windows": CSWin Transformer: A General Vision Transformer Backbone With Cross-Shaped Windows
 
 
-<a id="orgdf22db1"></a>
+<a id="org7a0c276"></a>
 
 ## Datasets
 
--   EuroSat: <https://github.com/phelber/eurosat>
--   Postdam: 6000x6000 Images:
+-   **EuroSat**: <https://github.com/phelber/eurosat>
+-   **Postdam**, 6000x6000 Images:
     Classes:
     
     1.  Yellow: cars;
@@ -39,6 +39,6 @@
     6.  Aqua : low vegetaion;
     
     <https://www.isprs.org/education/benchmarks/UrbanSemLab/default.aspx#Potsdam>
--   DeepGlobe(road extraction): 1024x1024 images with segmentation masks.
+-   **DeepGlobe** (road extraction): 1024x1024 images with segmentation masks.
     <https://www.kaggle.com/datasets/balraj98/deepglobe-road-extraction-dataset>
 
