@@ -42,3 +42,5 @@
 - PostDam, 300x300 cropped data, RGB masks --> https://drive.google.com/drive/folders/1C0s_fMhjgz0aXucyYv8BZqJnPzBIaHSA?usp=drive_link
 -   **DeepGlobe** (road extraction): 1024x1024 images with segmentation masks.
     <https://www.kaggle.com/datasets/balraj98/deepglobe-road-extraction-dataset>
+### Research Notes
+- https://docs.google.com/spreadsheets/d/14Pbsek03Q953QFlza4xGU4S9osLEyEKtXywEvMGKYsU/edit?usp=sharing
