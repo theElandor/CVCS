@@ -48,4 +48,7 @@
 + Make a 256x256 variant of Postdam (currently using 300x300 images);
 + Access Unimore servers and launch a sample training;
 + Add transformer to Unet architecture and train on postdam;
-+ Write evaluation loop with different metrics;
++ Write evaluation loop with different metrics
++ Write reliable code to make checkpoints of model and optimizer every 50(?) epochs, so that we can plot
+  performance over epochs of training.
+
