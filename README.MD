@@ -25,7 +25,7 @@
 
 <a id="org7a0c276"></a>
 
-## Datasets
+# Datasets
 
 -   **EuroSat**: <https://github.com/phelber/eurosat>
 -   **Postdam**, 6000x6000 Images:
@@ -42,5 +42,10 @@
 - PostDam, 300x300 cropped data, RGB masks --> https://drive.google.com/drive/folders/1C0s_fMhjgz0aXucyYv8BZqJnPzBIaHSA?usp=drive_link
 -   **DeepGlobe** (road extraction): 1024x1024 images with segmentation masks.
     <https://www.kaggle.com/datasets/balraj98/deepglobe-road-extraction-dataset>
-### Research Notes
+# Research Notes
 - https://docs.google.com/spreadsheets/d/14Pbsek03Q953QFlza4xGU4S9osLEyEKtXywEvMGKYsU/edit?usp=sharing
+# Things to do
++ Make a 256x256 variant of Postdam (currently using 300x300 images);
++ Access Unimore servers and launch a sample training;
++ Add transformer to Unet architecture and train on postdam;
++ Write evaluation loop with different metrics;
