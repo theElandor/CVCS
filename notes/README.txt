@@ -25,3 +25,4 @@ epochs = 150
 opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.999)
 Il modello, un checkpoint e i valori della loss sono stati salvati in locale.
 La loss è scesa fino a 0.079!
+Alcuni esempi di testing si possono trovare nella cartella train5.
