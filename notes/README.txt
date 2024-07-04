@@ -26,3 +26,6 @@ opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.999)
 Il modello, un checkpoint e i valori della loss sono stati salvati in locale.
 La loss è scesa fino a 0.079!
 Alcuni esempi di testing si possono trovare nella cartella train5.
+Il modello è stato validato: l'mIoU è pari a 51,3% (in linea con i valori riportati nel paper di Bahr (ovviamente per l'Unet classica), 
+lui ottiene un 53% ma traina per molto più tempo e con anche i dati di DeepGlobe). 
+Se invece si tiene conto del non bilanciamento delle label, la mIoU è pari al 78,3%
