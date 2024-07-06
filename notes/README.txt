@@ -49,4 +49,7 @@ che esempi con rumore (gaussian blur e elastic deformation). Per confrontare que
 sarebbe opportuno testarla soltanto su esempi non noisy. I risultati sono comunque incoraggianti.
 Sarebbe doveroso valutare l'accuracy su (i) test dataset di base (ii) test dataset solo noisy (iii) test dataset misto per avere valori
 precisi di riferimento
+In effetti la precedente precision del 51,3% non è propriamente comparabile con la precision attuale del 66%, perchè il modello ha visto
+esempi diversi in training e in testing. Non è possibile neanche validare il modello con lo stesso split di validation di quello precedente,
+perchè alcuni di questi esempi potrebbero essere stati visti dal modello attuale in training. --> da mettere a posto e pensare ad una soluzione
 -------------------------------------------------------------
