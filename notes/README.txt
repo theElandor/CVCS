@@ -30,26 +30,21 @@ Il modello è stato validato: l'mIoU è pari a 51,3%(opzione 'macro' del jsc sco
 lui ottiene un 53% ma traina per molto più tempo e con anche i dati di DeepGlobe.
 Se invece si tiene conto del non bilanciamento delle label, la mIoU è pari al 78,3%(opzione 'weighted' del jsc score).
 -------------------------------------------------------------
-+Train 6 (urnet3)
-Provo ad allenare lo stesso modello from scratch per lo stesso numero di epoche usando però il dataset aumentato:
-sono quindi stati aggiunti 2400 esempi contenenti le stesse immagini ma con aggiunta di immagini con noise.
-Considerando che il dataset è il doppio più grande, per vedere lo stesso numero di esempi il training deve durare 75 epoche.
-Verrà comunque salvato un checkpoint in caso si voglia allenare ulteriormente il modello.
---> come prevedibile la loss non è scesa a zero: serve più tempo per imparare a segmentare gli esempi distorti.
-mIoU bilanciata --> 77.3%
-mIoU non bilanciata --> 48.9%
-Train 7
-Per provare a migliorare la mIoU provo a trainare per altre 75 epoche.
-(ricorda di salvare le loss in un altro file altrimenti si sovrascrivono le vecchie)
---> il modello allenato per un totale di 150 epoche con dataset aumentato è stato salvato come urnet3.2
-mIoU non bilanciata --> 66%
-mIoU bilanciata --> 87.3%
-l'accuracy è migliorata notevolmente. Da considerare il fatto che nel test set sono presenti sia esempi normali
-che esempi con rumore (gaussian blur e elastic deformation). Per confrontare questa accuracy con quella della vecchia rete (urnet2)
-sarebbe opportuno testarla soltanto su esempi non noisy. I risultati sono comunque incoraggianti.
-Sarebbe doveroso valutare l'accuracy su (i) test dataset di base (ii) test dataset solo noisy (iii) test dataset misto per avere valori
-precisi di riferimento
-In effetti la precedente precision del 51,3% non è propriamente comparabile con la precision attuale del 66%, perchè il modello ha visto
-esempi diversi in training e in testing. Non è possibile neanche validare il modello con lo stesso split di validation di quello precedente,
-perchè alcuni di questi esempi potrebbero essere stati visti dal modello attuale in training. --> da mettere a posto e pensare ad una soluzione
++Train 6, Train 7 prove con dataset aumentato (urnet3.1, 3.2), non rilevanti.
 -------------------------------------------------------------
++Train 8 (urnet3.3)
+Usando il dataset aumentato durante il training:
++ Validation su dataset con immagini originali (mIoU): 49% (circa in linea con quello precedente). Mi aspettavo meglio in relatà.
+  weigthed IoU --> 76%
++ Validation su dataset con immagini distorte (mIoU): 44%. Abbastanza buono questo, probabilmente il modello 'sacrifica' un po' di precisione
+  sulle immagini non distorte per guadagnarci in generalità, in modo da segmentare bene quelle distorte.
+  weigthed IoU --> 72%
+Per quanto riguarda la gestione del dataset e dello split train / validation:
+sono stati creati due datasets: il primo con le 2400 immagini originali e relative maschere, il secondo con le 2400 immagini distorte e relative maschere.
+I due dataset sono stati concatenati, ottenendo un dataset con 4800 elementi: gli indici da [0, 2400) corrispondono alle imm. originali, da [2400, 4800) alle immagini distorte.
+Sono stati creati poi gli split di train e validation:
+1) Train: i primi 2400 indici sono stati shufflati usando uno specifico seed, e sono stati presi i primi 1920. Sono poi stati aggiunti tutti gli indici 
+   delle immagini distorte corrispondenti, semplicemente aggiungendo un'offset di 2400 a ogni indice originale.
+   E' stato creato un SubsetRandomSampler che durante l'allenamento sceglie casualmente batch_size indici ad ogni iterazione di train.
+2) Validation base: sono stati presi i 480 indici rimanenti dalla lista di immagini originali
+3) Validation noisy: indici del validation base + 2400, ossia i rimanenti che non erano ancora stati scelti tra gli indici delle immagini distorte.
