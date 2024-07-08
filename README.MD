@@ -50,5 +50,5 @@
 + Add transformer to Unet architecture and train on postdam;
 + ~~Write evaluation loop with different metrics~~;
 + Write reliable code to make checkpoints of model and optimizer every 50(?) epochs, so that we can plot
-  performance over epochs of training.
-
+  performance over epochs of training;
++ Improve GPU usage (bottleneck somewhere);
