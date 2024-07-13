@@ -116,7 +116,7 @@ else:
         validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler, batch_size=batch_size)
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
         print("Running validation...", flush=True)
-        validation_loss_values.append(validation_loss(net, validation_base_loader, crit))
+        validation_loss_values.append(validation_loss(net, validation_base_loader, crit, device))
         # 3) Append results to list
         if (epoch+1) % freq == 0: # save checkpoint every 2 epochs
             torch.save({
