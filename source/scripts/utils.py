@@ -98,7 +98,6 @@ def validation_loss(net, loader, crit, device):
     cumulative_loss = 0
     iterations = 0
     for batch_index, (image, mask, _) in enumerate(loader):
-        print(batch_index)
         iterations+=1
         image, mask = image.to(device), mask.to(device)        
         mask_pred = net(image).to(device)
