@@ -93,22 +93,27 @@ class Tunet(nn.Module): # Unet + vision transformer
         # encoding part of the Unet vanilla architecture
         self.encode1 = nn.Sequential(
             UnetEncodeLayer(3, d//16, padding=1),
+            UnetEncodeLayer(d//16, d//16, padding=1),
         )
         self.encode2 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2, stride=2),
-            UnetEncodeLayer(d//16, d//8, padding=1),            
+            UnetEncodeLayer(d//16, d//8, padding=1), 
+            UnetEncodeLayer(d//8, d//8, padding=1),                        
         )
         self.encode3 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2, stride=2, padding=1),
-            UnetEncodeLayer(d//8, d//4, padding=1),            
+            UnetEncodeLayer(d//8, d//4, padding=1),
+            UnetEncodeLayer(d//4, d//4, padding=1),
         )
         self.encode4 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2, stride=2),
             UnetEncodeLayer(d//4, d//2, padding=1),
+            UnetEncodeLayer(d//2, d//2, padding=1),
         )
         self.encode5 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2, stride=2),            
             UnetEncodeLayer(d//2, d, padding=1),
+            UnetEncodeLayer(d, d, padding=1),
         )
         self.transformer = VisionTransformerEncoder(self.d,self.heads,self.layers)
         self.upscale1 = nn.Sequential(
