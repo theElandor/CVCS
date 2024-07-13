@@ -14,13 +14,13 @@ import os
 
 # START Control variables---------------------------------
 # This section contains some variables that need to be set before running the script.
-images_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_300x300_full\\Images"
-labels_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_300x300_full\\Labels"
-checkpoint_directory = "D:\\Models\\Tunet1\\checkpoints" # directory to save checkpoints in
+images_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Images/"
+labels_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Labels"
+checkpoint_directory = "/work/cvcs2024/MSseg/checkpoints/tunet1" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
 epochs = 40
 load_checkpoint = ""
-freq = 2 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
+freq = 5 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
 # checkpoints are saved in the specified directory as checkpoint_{epoch}. Make sure to backup them
 # END Control variables----------------------------------
 
@@ -39,7 +39,7 @@ dataset = ConcatDataset([base_dataset, augmented_dataset])
 assert torch.cuda.is_available(), "Notebook is not configured properly!"
 device = 'cuda:0'
 print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
-net = Tunet(768, 12, 6).to(device)
+net = Tunet(768, 12, 12).to(device)
 num_params = sum([np.prod(p.shape) for p in net.parameters()])
 print(f"Number of parameters : {num_params}")
 print("Dataset length: {}".format(dataset.__len__()))
@@ -92,15 +92,14 @@ if load_checkpoint != "":
 else:
     last_epoch = 0
 
-
 if not Path(checkpoint_directory).is_dir():
     print("Please provide a valid directory to save checkpoints in.")
 else:
     for epoch in range(last_epoch, epochs):
         cumulative_loss = 0
         tot = 0
-        pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch}')
         net.train()
+        print("Started epoch {}".format(epoch+1), flush=True)
         for batch_index, (image, mask, _) in enumerate(train_loader):
             tot+=1
             image, mask = image.to(device), mask.to(device)        
@@ -110,15 +109,13 @@ else:
             opt.zero_grad()
             loss.backward()
             opt.step()
-            pbar.update(1)
-            pbar.set_postfix({'Loss': cumulative_loss/tot})
-        pbar.close()
         training_loss_values.append(cumulative_loss/tot)        
         # run evaluation!
         # 1) Re-initialize data loaders
         valid_base_sampler = SubsetRandomSampler(val_base_indices)
         validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler, batch_size=batch_size)
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
+        print("Running validation...", flush=True)
         validation_loss_values.append(validation_loss(net, validation_base_loader, crit))
         # 3) Append results to list
         if (epoch+1) % freq == 0: # save checkpoint every 2 epochs
