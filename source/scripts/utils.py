@@ -1,6 +1,6 @@
 import torch
 from sklearn.metrics import jaccard_score as jsc
-import tqdm
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
 

@@ -4,6 +4,8 @@ import torchvision.transforms as v2
 from dataset import PostDamDataset
 from nets import Tunet
 from torch.utils.data import ConcatDataset
+import numpy as np
+from torch.utils.data.sampler import SubsetRandomSampler
 #def eval_model(net, validation_loader, validation_len, device, dataset, show_progress = False, write_output=False, prefix=""):
 
 # START Control variables---------------------------------
