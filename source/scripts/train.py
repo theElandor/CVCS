@@ -16,10 +16,10 @@ import os
 # This section contains some variables that need to be set before running the script.
 images_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Images/"
 labels_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Labels"
-checkpoint_directory = "/work/cvcs2024/MSseg/checkpoints/tunet1" # directory to save checkpoints in
+checkpoint_directory = "/homes/mlugli/checkpoints/tunet1/" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
 epochs = 40
-load_checkpoint = ""
+load_checkpoint = "/homes/mlugli/checkpoints/tunet1/checkpoint30"
 freq = 5 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
 # checkpoints are saved in the specified directory as checkpoint_{epoch}. Make sure to backup them
 # END Control variables----------------------------------
