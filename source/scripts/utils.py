@@ -97,12 +97,14 @@ def eval_model(net, validation_loader, validation_len, device, dataset, show_pro
 def validation_loss(net, loader, crit, device):
     cumulative_loss = 0
     iterations = 0
-    for batch_index, (image, mask, _) in enumerate(loader):
-        iterations+=1
-        image, mask = image.to(device), mask.to(device)        
-        mask_pred = net(image).to(device)
-        loss = crit(mask_pred, mask)
-        cumulative_loss += loss.item()
+    net.eval()
+    with torch.no_grad():
+        for batch_index, (image, mask, _) in enumerate(loader):
+            iterations+=1
+            image, mask = image.to(device), mask.to(device)        
+            mask_pred = net(image).to(device)
+            loss = crit(mask_pred, mask)
+            cumulative_loss += loss.item()
     return cumulative_loss/iterations
 
 def save_loss(filename, values):

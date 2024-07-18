@@ -4,7 +4,7 @@ import torchvision.transforms as v2
 import numpy as np
 from torch.utils.data import ConcatDataset
 from dataset import PostDamDataset
-from nets import Tunet
+from nets import Swin
 from torch.utils.data.sampler import SubsetRandomSampler
 from pathlib import Path
 from tqdm import tqdm
@@ -14,13 +14,14 @@ import os
 
 # START Control variables---------------------------------
 # This section contains some variables that need to be set before running the script.
-images_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Images/"
-labels_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Labels"
-checkpoint_directory = "/homes/mlugli/checkpoints/tunet1/" # directory to save checkpoints in
+images_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Images"
+labels_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Labels"
+checkpoint_directory = "D:\\weights\\swin" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
-epochs = 40
-load_checkpoint = "/homes/mlugli/checkpoints/tunet1/checkpoint30"
-freq = 5 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
+epochs = 80
+load_checkpoint = "D:\\weights\\swin\\checkpoint50"
+freq = 1 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
+verbose = True
 # checkpoints are saved in the specified directory as checkpoint_{epoch}. Make sure to backup them
 # END Control variables----------------------------------
 
@@ -39,13 +40,13 @@ dataset = ConcatDataset([base_dataset, augmented_dataset])
 assert torch.cuda.is_available(), "Notebook is not configured properly!"
 device = 'cuda:0'
 print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
-net = Tunet(768, 12, 12).to(device)
+net = Swin(96,256).to(device)
 num_params = sum([np.prod(p.shape) for p in net.parameters()])
 print(f"Number of parameters : {num_params}")
 print("Dataset length: {}".format(dataset.__len__()))
 
 #Dataset train/validation split according to validation split and seed.
-batch_size = 4
+batch_size = 16
 validation_split = .2
 random_seed= 42
 
@@ -73,7 +74,7 @@ print(f"Train dataset split(augmented): {len(train_indices)}")
 print(f"Validation dataset split: {len(val_base_indices)}")
 print(f"Validation dataset split(only noise): {len(val_noisy_indices)}")
 crit = nn.CrossEntropyLoss()
-opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.999)
+opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.9, weight_decay=0.0001)
 
 
 training_loss_values = []
@@ -98,6 +99,8 @@ else:
     for epoch in range(last_epoch, epochs):
         cumulative_loss = 0
         tot = 0
+        if verbose:
+            pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch}')
         net.train()
         print("Started epoch {}".format(epoch+1), flush=True)
         for batch_index, (image, mask, _) in enumerate(train_loader):
@@ -109,6 +112,11 @@ else:
             opt.zero_grad()
             loss.backward()
             opt.step()
+            if verbose:
+                pbar.update(1)
+                pbar.set_postfix({'Loss': cumulative_loss/tot})            
+        if verbose:
+            pbar.close()
         training_loss_values.append(cumulative_loss/tot)        
         # run evaluation!
         # 1) Re-initialize data loaders
@@ -117,8 +125,10 @@ else:
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
         print("Running validation...", flush=True)
         validation_loss_values.append(validation_loss(net, validation_base_loader, crit, device))
+        print("Mean val. loss: {}".format(validation_loss_values[-1]))
+        print("Mean train. loss: {}".format(training_loss_values[-1]))
         # 3) Append results to list
-        if (epoch+1) % freq == 0: # save checkpoint every 2 epochs
+        if (epoch+1) % freq == 0: # save checkpoint every freq epochs
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': net.state_dict(),

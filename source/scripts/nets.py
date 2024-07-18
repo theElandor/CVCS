@@ -2,6 +2,7 @@ from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, Visi
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as functional
+from mmseg.models import SwinTransformer
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
 	def __init__(self):
@@ -169,3 +170,39 @@ class Tunet(nn.Module): # Unet + vision transformer
         c4 = torch.concat((self.x1, y4), 1)
         segmap = self.decode_forward4(c4)
         return segmap
+
+class Swin(nn.Module): # swinT + unet head
+    def __init__(self, embed_dim, size):
+        super(Swin, self).__init__()
+        self.c = embed_dim
+        self.h = size
+        self.w = size
+        self.swin = SwinTransformer(pretrain_img_size=size, in_channels=3, embed_dims=embed_dim, patch_size=4)        
+        self.upscale1 = UnetUpscaleLayer(2, self.c*8)
+        self.decode_forward1 = UnetForwardDecodeLayer(self.c*8,self.c*4, padding=1)
+        self.upscale2 = UnetUpscaleLayer(2, self.c*4)    
+        self.decode_forward2 = UnetForwardDecodeLayer(self.c*4, self.c*2, padding=1)
+        self.upscale3 = UnetUpscaleLayer(2,self.c*2)
+        self.decode_forward3 = UnetForwardDecodeLayer(self.c*2, self.c, padding=1)
+        self.upscale4 = UnetUpscaleLayer(2,self.c)
+        self.decode_forward4 = nn.Sequential(
+            UnetForwardDecodeLayer(self.c//2,self.c//2,padding=1),
+            UnetUpscaleLayer(2, self.c//2),
+            nn.Conv2d(self.c//4, 6, kernel_size=1) # final conv 1x1
+            # Model output is 6xHxW, so we have a prob. distribution
+            # for each pixel (each pixel has a logit for each of the 6 classes.)
+        )
+    def forward(self, x):
+        self.r1, self.r2, self.r3, self.r4 = self.swin(x)
+        x = self.upscale1(self.r4)
+        c1 = torch.concat((x, self.r3), 1)
+        x = self.decode_forward1(c1)
+        x = self.upscale2(x)
+        c2 = torch.concat((x, self.r2), 1)
+        x = self.decode_forward2(c2)        
+        x = self.upscale3(x)
+        c3 = torch.concat((x, self.r1), 1)        
+        x = self.decode_forward3(c3)
+        x = self.upscale4(x)
+        x = self.decode_forward4(x)
+        return x

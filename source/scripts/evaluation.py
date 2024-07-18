@@ -57,5 +57,5 @@ valid_noisy_sampler = SubsetRandomSampler(val_noisy_indices)
 #for validation loader batch size is default, so 1.
 validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler)
 validation_noisy_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_noisy_sampler)
-macro, weighted = eval_model(net, validation_base_loader, len(valid_base_indices), device, dataset, show_progress=True)
+macro, weighted = eval_model(net, validation_base_loader, len(val_base_indices), device, dataset, show_progress=True)
 print(macro, weighted)
