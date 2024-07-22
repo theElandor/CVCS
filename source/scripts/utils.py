@@ -3,6 +3,8 @@ from sklearn.metrics import jaccard_score as jsc
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
+from random import random
+import torchvision.transforms as T
 
 class Converter:
 	def __init__(self):
@@ -111,3 +113,18 @@ def save_loss(filename, values):
     with open(filename, "w") as f:
         for v in values:
             f.write(str(v)+"\n")
+
+class RandomFlip:
+    def __init__(self, prob=0.5):
+        self.prob = prob
+
+    def __call__(self, img, mask):
+        if random() < self.prob:
+            # Apply horizontal flip
+            img = T.functional.hflip(img)
+            mask = T.functional.hflip(mask)
+        if random() < self.prob:
+            # Apply vertical flip
+            img = T.functional.vflip(img)
+            mask = T.functional.vflip(mask)
+        return img, mask

@@ -2,16 +2,16 @@ import torch
 from utils import eval_model
 import torchvision.transforms as v2
 from dataset import PostDamDataset
-from nets import Tunet
+from nets import Swin
 from torch.utils.data import ConcatDataset
 import numpy as np
 from torch.utils.data.sampler import SubsetRandomSampler
 #def eval_model(net, validation_loader, validation_len, device, dataset, show_progress = False, write_output=False, prefix=""):
 
 # START Control variables---------------------------------
-load_checkpoint = "/homes/mlugli/checkpoints/tunet1/checkpoint40"
-images_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Images/"
-labels_path = "/work/cvcs2024/MSseg/Postdam_300x300_full/Labels"
+load_checkpoint = "D:\\weights\\swin\\checkpoint30"
+images_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Images"
+labels_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Labels"
 extension = ".png"
 # END Control variables---------------------------------
 
@@ -21,8 +21,8 @@ transforms = v2.Compose([
     v2.ElasticTransform(alpha=200.0)
 ])
 
-base_dataset = PostDamDataset(images_path, labels_path, extension)
-augmented_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms)
+base_dataset = PostDamDataset(images_path, labels_path, extension, crop=224)
+augmented_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms, crop=224)
 dataset = ConcatDataset([base_dataset, augmented_dataset])
 
 # NETWORK INITIALIZATION
@@ -31,10 +31,10 @@ dataset = ConcatDataset([base_dataset, augmented_dataset])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 if device == "cpu":
     print("Warning: GPU is not being used for evaluation.")
-net = Tunet(768, 12, 12).to(device)
+net = Swin(96,224).to(device)
 checkpoint = torch.load(load_checkpoint)
 net.load_state_dict(checkpoint['model_state_dict'])
-print("Successfully loaded checkpoint /homes/mlugli/checkpoints/tunet1/checkpoint40")
+print("Successfully loaded checkpoint")
 
 
 #Dataset train/validation split according to validation split and seed.
@@ -50,12 +50,9 @@ augmented_indices = [i+(len(dataset)//2) for i in base_indices] # take corespond
 split = int(np.floor((1-validation_split) * (dataset_size//2)))
 
 val_base_indices = base_indices[split:]
-val_noisy_indices = augmented_indices[split:]
 
 valid_base_sampler = SubsetRandomSampler(val_base_indices)
-valid_noisy_sampler = SubsetRandomSampler(val_noisy_indices)
 #for validation loader batch size is default, so 1.
 validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler)
-validation_noisy_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_noisy_sampler)
-macro, weighted = eval_model(net, validation_base_loader, len(val_base_indices), device, dataset, show_progress=True)
+macro, weighted = eval_model(net, validation_base_loader, len(val_base_indices), device, dataset, show_progress=True, write_output=True, prefix="test")
 print(macro, weighted)

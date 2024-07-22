@@ -8,7 +8,7 @@ from nets import Swin
 from torch.utils.data.sampler import SubsetRandomSampler
 from pathlib import Path
 from tqdm import tqdm
-from utils import validation_loss
+from utils import validation_loss, RandomFlip
 import matplotlib.pyplot as plt
 import os
 
@@ -18,8 +18,8 @@ images_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Images"
 labels_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Labels"
 checkpoint_directory = "D:\\weights\\swin" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
-epochs = 80
-load_checkpoint = "D:\\weights\\swin\\checkpoint50"
+epochs = 40
+load_checkpoint = ""
 freq = 1 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
 verbose = True
 # checkpoints are saved in the specified directory as checkpoint_{epoch}. Make sure to backup them
@@ -31,50 +31,59 @@ transforms = v2.Compose([
     v2.GaussianBlur(kernel_size=(15), sigma=5),
     v2.ElasticTransform(alpha=200.0)
 ])
+transforms2 = v2.Compose([
+    v2.RandomInvert(p=1)
+])
+geometric = RandomFlip(prob=0.8)
 
-base_dataset = PostDamDataset(images_path, labels_path, extension)
-augmented_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms)
-dataset = ConcatDataset([base_dataset, augmented_dataset])
+
+base_dataset = PostDamDataset(images_path, labels_path, extension, crop=224)
+blurred_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms, crop=224)
+colored_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms2, crop=224)
+flipped_dataset = PostDamDataset(images_path, labels_path,extension, transforms=geometric, crop=224, augment_mask=True)
+dataset = ConcatDataset([base_dataset, blurred_dataset, colored_dataset, flipped_dataset])
 
 # NETWORK INITIALIZATION
 assert torch.cuda.is_available(), "Notebook is not configured properly!"
 device = 'cuda:0'
 print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
-net = Swin(96,256).to(device)
+net = Swin(96,224).to(device)
 num_params = sum([np.prod(p.shape) for p in net.parameters()])
 print(f"Number of parameters : {num_params}")
 print("Dataset length: {}".format(dataset.__len__()))
 
 #Dataset train/validation split according to validation split and seed.
-batch_size = 16
+batch_size = 10
 validation_split = .2
 random_seed= 42
 
 dataset_size = len(dataset)
-base_indices = list(range(dataset_size//2))
+base_indices = list(range(dataset_size//4))
 np.random.seed(random_seed)
 np.random.shuffle(base_indices)
-augmented_indices = [i+(len(dataset)//2) for i in base_indices] # take coresponding augmented images
-split = int(np.floor((1-validation_split) * (dataset_size//2)))
+blurred_indices = [i+(len(dataset)//4) for i in base_indices] # take coresponding augmented images
+colored_indices = [i+(len(dataset)//4)*2 for i in base_indices] # take coresponding augmented images
+flipped_indices = [i+(len(dataset)//4)*3 for i in base_indices]
+print(base_indices[:10])
+print(blurred_indices[:10])
+print(colored_indices[:10])
+print(flipped_indices[:10])
 
-train_indices = base_indices[:split]+augmented_indices[:split]
+split = int(np.floor((1-validation_split) * (dataset_size//4)))
+train_indices = base_indices[:split]+blurred_indices[:split]+colored_indices[:split]+flipped_indices[:split]
 val_base_indices = base_indices[split:]
-val_noisy_indices = augmented_indices[split:]
 
 train_sampler = SubsetRandomSampler(train_indices)
 valid_base_sampler = SubsetRandomSampler(val_base_indices)
-valid_noisy_sampler = SubsetRandomSampler(val_noisy_indices)
 
 train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
 #for validation loader batch size is default, so 1.
 validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler)
-validation_noisy_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_noisy_sampler)
 
 print(f"Train dataset split(augmented): {len(train_indices)}")
 print(f"Validation dataset split: {len(val_base_indices)}")
-print(f"Validation dataset split(only noise): {len(val_noisy_indices)}")
 crit = nn.CrossEntropyLoss()
-opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.9, weight_decay=0.0001)
+opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.00001)
 
 
 training_loss_values = []

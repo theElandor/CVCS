@@ -2,7 +2,8 @@ from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, Visi
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as functional
-from mmseg.models import SwinTransformer
+import math
+from transformers import AutoModel
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
 	def __init__(self):
@@ -177,7 +178,9 @@ class Swin(nn.Module): # swinT + unet head
         self.c = embed_dim
         self.h = size
         self.w = size
-        self.swin = SwinTransformer(pretrain_img_size=size, in_channels=3, embed_dims=embed_dim, patch_size=4)        
+        #self.swin = SwinTransformer(pretrain_img_size=size, in_channels=3, embed_dims=embed_dim, patch_size=4)        
+        model_name = "microsoft/swin-tiny-patch4-window7-224"        
+        self.swin = AutoModel.from_pretrained(model_name)
         self.upscale1 = UnetUpscaleLayer(2, self.c*8)
         self.decode_forward1 = UnetForwardDecodeLayer(self.c*8,self.c*4, padding=1)
         self.upscale2 = UnetUpscaleLayer(2, self.c*4)    
@@ -193,7 +196,13 @@ class Swin(nn.Module): # swinT + unet head
             # for each pixel (each pixel has a logit for each of the 6 classes.)
         )
     def forward(self, x):
-        self.r1, self.r2, self.r3, self.r4 = self.swin(x)
+        self.r1, self.r2, self.r3, _, self.r4 = self.swin(x,return_dict=True, output_hidden_states=True)['hidden_states']
+        s = int(math.sqrt(self.r4.shape[1]))
+        self.r4 = self.r4.swapaxes(1,2).reshape(-1,self.c*8,s,s)
+        self.r3 = self.r3.swapaxes(1,2).reshape(-1,self.c*4,s*2,s*2)
+        self.r2 = self.r2.swapaxes(1,2).reshape(-1,self.c*2,s*4,s*4)
+        self.r1 = self.r1.swapaxes(1,2).reshape(-1,self.c,s*8,s*8)
+        
         x = self.upscale1(self.r4)
         c1 = torch.concat((x, self.r3), 1)
         x = self.decode_forward1(c1)
