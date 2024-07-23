@@ -15,7 +15,7 @@ import os
 train = "/work/cvcs2024/MSseg/5bp/Train"
 validation = "/work/cvcs2024/MSseg/5bp/Validation"
 test = "/work/cvcs2024/MSseg/5bp/Test"
-checkpoint_directory = "/homes/mlugli/checkpoints/swin1" # directory to save checkpoints in
+checkpoint_directory = "/homes/mlugli/checkpoints/unet1" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
 epochs = 10
 load_checkpoint = ""
