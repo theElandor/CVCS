@@ -3,6 +3,8 @@ from sklearn.metrics import jaccard_score as jsc
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
+from random import random
+import torchvision.transforms as T
 
 class Converter:
 	def __init__(self):
@@ -95,17 +97,44 @@ def eval_model(net, validation_loader, validation_len, device, dataset, show_pro
     
     # validation_loss(net, validation_base_loader, len(val_base_indices))
 def validation_loss(net, loader, crit, device):
-    cumulative_loss = 0
-    iterations = 0
-    for batch_index, (image, mask, _) in enumerate(loader):
-        iterations+=1
-        image, mask = image.to(device), mask.to(device)        
-        mask_pred = net(image).to(device)
-        loss = crit(mask_pred, mask)
-        cumulative_loss += loss.item()
-    return cumulative_loss/iterations
+    loss_values = []
+    net.eval()
+    with torch.no_grad():
+        for _, (image, mask, _) in enumerate(loader):            
+            image, mask = image.to(device), mask.to(device)        
+            mask_pred = net(image).to(device)
+            loss = crit(mask_pred, mask)
+            loss_values.append(loss.item())
+    return loss_values
 
 def save_loss(filename, values):
     with open(filename, "w") as f:
         for v in values:
             f.write(str(v)+"\n")
+
+def save_model(epoch, net, opt, loss, train_loss, val_loss, batch_size, checkpoint_dir):
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': net.state_dict(),
+        'optimizer_state_dict': opt.state_dict(),
+        'loss': loss.item(),
+        'training_loss_values': train_loss,
+        'validation_loss_values': val_loss,
+        'batch_size': batch_size,
+        }, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
+     
+
+class RandomFlip:
+    def __init__(self, prob=0.5):
+        self.prob = prob
+
+    def __call__(self, img, mask):
+        if random() < self.prob:
+            # Apply horizontal flip
+            img = T.functional.hflip(img)
+            mask = T.functional.hflip(mask)
+        if random() < self.prob:
+            # Apply vertical flip
+            img = T.functional.vflip(img)
+            mask = T.functional.vflip(mask)
+        return img, mask
