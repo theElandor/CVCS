@@ -76,9 +76,7 @@ else:
 
 if not Path(checkpoint_directory).is_dir():
     print("Please provide a valid directory to save checkpoints in.")
-else:
-    validation_loss_values += validation_loss(net, validation_loader, crit, device, show_progress=True)
-    exit(0)
+else:    
     for epoch in range(last_epoch, epochs):
         if verbose:
             pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch}')
@@ -102,7 +100,7 @@ else:
         validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size)
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
         print("Running validation...", flush=True)
-        validation_loss_values += validation_loss(net, validation_loader, crit, device)
+        validation_loss_values += validation_loss(net, validation_loader, crit, device, show_progress=True)
         # 3) Append results to list
         if (epoch+1) % freq == 0: # save checkpoint every freq epochs            
             save_model(epoch, net, opt, loss, training_loss_values, validation_loss_values, macro_precision, weighted_precision, batch_size, checkpoint_directory)
