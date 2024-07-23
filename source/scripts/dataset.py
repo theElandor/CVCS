@@ -2,7 +2,7 @@ import os
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
 from PIL import Image
-from torchvision import tv_tensor
+from torchvision import tv_tensors
 import torchvision.transforms as v2
 from utils import Converter
 from torchvision.transforms.functional import center_crop
@@ -29,7 +29,6 @@ class PostDamDataset(Dataset):
 		final_mask = self.c.convert(ToTensor()(tif_mask))
 		final_image = ToTensor()(tif_img)
 		if self.transforms:  # if transforms are provided, apply them
-<<<<<<< HEAD
 			if self.augment_mask:
 				final_image, final_mask = self.transforms(final_image, final_mask)
 			else:
@@ -38,13 +37,6 @@ class PostDamDataset(Dataset):
 			final_image = center_crop(final_image, self.crop)
 			final_mask = center_crop(final_mask, self.crop)
 		return (final_image, final_mask, idx)
-=======
-			final_image = self.transforms(ToTensor()(tif_img))
-		# no transform is applied on mask obv.
-		else:
-			final_image = ToTensor()(tif_img)
-		return (final_image, self.c.convert(ToTensor()(tif_mask)), idx)
-
 
 class GF5BP(Dataset):
 	'''
@@ -106,6 +98,3 @@ class GF5BP(Dataset):
 			mask_img = self.target_transforms(mask_img)
 
 		return (tif_img, mask_img)
-			
-
->>>>>>> 9e7c41ec382e0ce3053cfee50e16da009bad041c

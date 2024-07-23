@@ -1,87 +1,52 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms as v2
 import numpy as np
-from torch.utils.data import ConcatDataset
-from dataset import PostDamDataset
+from dataset import GF5BP
 from nets import Swin
 from torch.utils.data.sampler import SubsetRandomSampler
 from pathlib import Path
 from tqdm import tqdm
-from utils import validation_loss, RandomFlip
+from utils import validation_loss, save_model
 import matplotlib.pyplot as plt
 import os
 
 # START Control variables---------------------------------
 # This section contains some variables that need to be set before running the script.
-images_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Images"
-labels_path = "C:\\Users\\eros\\CVCS\\dataset\\Postdam_256x256_full\\Labels"
+train = "D:\\Datasets\\GID15\\Train"
+validation = "D:\\Datasets\\GID15\\Validation"
+test = "D:\\Datasets\\GID15\\Test"
 checkpoint_directory = "D:\\weights\\swin" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
-epochs = 40
+epochs = 20
 load_checkpoint = ""
 freq = 1 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
 verbose = True
+batch_size = 16
 # checkpoints are saved in the specified directory as checkpoint_{epoch}. Make sure to backup them
 # END Control variables----------------------------------
 
+train_dataset = GF5BP(train)
+validation_dataset = GF5BP(validation)
+test_dataset = GF5BP(test)
 
-
-transforms = v2.Compose([
-    v2.GaussianBlur(kernel_size=(15), sigma=5),
-    v2.ElasticTransform(alpha=200.0)
-])
-transforms2 = v2.Compose([
-    v2.RandomInvert(p=1)
-])
-geometric = RandomFlip(prob=0.8)
-
-
-base_dataset = PostDamDataset(images_path, labels_path, extension, crop=224)
-blurred_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms, crop=224)
-colored_dataset = PostDamDataset(images_path, labels_path,extension, transforms=transforms2, crop=224)
-flipped_dataset = PostDamDataset(images_path, labels_path,extension, transforms=geometric, crop=224, augment_mask=True)
-dataset = ConcatDataset([base_dataset, blurred_dataset, colored_dataset, flipped_dataset])
 
 # NETWORK INITIALIZATION
 assert torch.cuda.is_available(), "Notebook is not configured properly!"
 device = 'cuda:0'
 print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
-net = Swin(96,224).to(device)
+net = Swin(96,224,25).to(device)
 num_params = sum([np.prod(p.shape) for p in net.parameters()])
 print(f"Number of parameters : {num_params}")
-print("Dataset length: {}".format(dataset.__len__()))
+print("Training samples: {}".format(train_dataset.__len__()))
+print("Validation samples: {}".format(validation_dataset.__len__()))
+print("Test samples: {}".format(test_dataset.__len__()))
 
 #Dataset train/validation split according to validation split and seed.
-batch_size = 10
-validation_split = .2
-random_seed= 42
 
-dataset_size = len(dataset)
-base_indices = list(range(dataset_size//4))
-np.random.seed(random_seed)
-np.random.shuffle(base_indices)
-blurred_indices = [i+(len(dataset)//4) for i in base_indices] # take coresponding augmented images
-colored_indices = [i+(len(dataset)//4)*2 for i in base_indices] # take coresponding augmented images
-flipped_indices = [i+(len(dataset)//4)*3 for i in base_indices]
-print(base_indices[:10])
-print(blurred_indices[:10])
-print(colored_indices[:10])
-print(flipped_indices[:10])
 
-split = int(np.floor((1-validation_split) * (dataset_size//4)))
-train_indices = base_indices[:split]+blurred_indices[:split]+colored_indices[:split]+flipped_indices[:split]
-val_base_indices = base_indices[split:]
-
-train_sampler = SubsetRandomSampler(train_indices)
-valid_base_sampler = SubsetRandomSampler(val_base_indices)
-
-train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
+validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = batch_size)
 #for validation loader batch size is default, so 1.
-validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler)
-
-print(f"Train dataset split(augmented): {len(train_indices)}")
-print(f"Validation dataset split: {len(val_base_indices)}")
 crit = nn.CrossEntropyLoss()
 opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.00001)
 
@@ -106,57 +71,32 @@ if not Path(checkpoint_directory).is_dir():
     print("Please provide a valid directory to save checkpoints in.")
 else:
     for epoch in range(last_epoch, epochs):
-        cumulative_loss = 0
-        tot = 0
         if verbose:
             pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch}')
         net.train()
-        print("Started epoch {}".format(epoch+1), flush=True)
-        for batch_index, (image, mask, _) in enumerate(train_loader):
-            tot+=1
-            image, mask = image.to(device), mask.to(device)        
-            mask_pred = net(image).to(device)
-            loss = crit(mask_pred, mask)
-            cumulative_loss += loss.item()
+        print("Started epoch {}".format(epoch+1))
+        for batch_index, (image, mask) in enumerate(train_loader):
+            image, mask = image.to(device), mask.to(device)
+            mask_pred = net(image.type(torch.float32)).to(device)
+            loss = crit(mask_pred, mask.squeeze().type(torch.long))
+            training_loss_values.append(loss.item())
             opt.zero_grad()
             loss.backward()
             opt.step()
             if verbose:
                 pbar.update(1)
-                pbar.set_postfix({'Loss': cumulative_loss/tot})            
+                pbar.set_postfix({'Loss': loss.item()})
         if verbose:
             pbar.close()
-        training_loss_values.append(cumulative_loss/tot)        
         # run evaluation!
         # 1) Re-initialize data loaders
-        valid_base_sampler = SubsetRandomSampler(val_base_indices)
-        validation_base_loader = torch.utils.data.DataLoader(dataset ,sampler=valid_base_sampler, batch_size=batch_size)
+        validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size)
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
         print("Running validation...", flush=True)
-        validation_loss_values.append(validation_loss(net, validation_base_loader, crit, device))
-        print("Mean val. loss: {}".format(validation_loss_values[-1]))
-        print("Mean train. loss: {}".format(training_loss_values[-1]))
+        validation_loss_values += validation_loss(net, validation_loader, crit, device)
         # 3) Append results to list
-        if (epoch+1) % freq == 0: # save checkpoint every freq epochs
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': opt.state_dict(),
-                'loss': loss.item(),
-                'training_loss_values': training_loss_values,
-                'validation_loss_values': validation_loss_values
-                }, os.path.join(checkpoint_directory, "checkpoint{}".format(epoch+1)))
+        if (epoch+1) % freq == 0: # save checkpoint every freq epochs            
+            save_model(epoch, net, opt, loss, training_loss_values, validation_loss_values, batch_size, checkpoint_directory)
     print("Training Done!")
-    # make sure to save at the end of the training
-    torch.save({
-                'epoch': epochs,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': opt.state_dict(),
-                'loss': loss.item(),
-                'training_loss_values': training_loss_values,
-                'validation_loss_values': validation_loss_values
-                }, os.path.join(checkpoint_directory, "checkpoint{}".format(epochs)))
-    plt.plot(training_loss_values, label="Mean training loss per epoch")
-    plt.plot(validation_loss_values, label = "Mean validation loss per epoch")
-    plt.legend(loc="upper right")
-    plt.savefig("train_validation_loss.png")
+    print(f"Reached training loss: {training_loss_values[-1]}")
+    print(f"Reached validation loss: {validation_loss_values[-1]}")

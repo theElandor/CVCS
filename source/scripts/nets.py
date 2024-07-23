@@ -173,11 +173,12 @@ class Tunet(nn.Module): # Unet + vision transformer
         return segmap
 
 class Swin(nn.Module): # swinT + unet head
-    def __init__(self, embed_dim, size):
+    def __init__(self, embed_dim, size, num_classes):
         super(Swin, self).__init__()
         self.c = embed_dim
         self.h = size
         self.w = size
+        self.num_classes = num_classes
         #self.swin = SwinTransformer(pretrain_img_size=size, in_channels=3, embed_dims=embed_dim, patch_size=4)        
         model_name = "microsoft/swin-tiny-patch4-window7-224"        
         self.swin = AutoModel.from_pretrained(model_name)
@@ -191,7 +192,7 @@ class Swin(nn.Module): # swinT + unet head
         self.decode_forward4 = nn.Sequential(
             UnetForwardDecodeLayer(self.c//2,self.c//2,padding=1),
             UnetUpscaleLayer(2, self.c//2),
-            nn.Conv2d(self.c//4, 6, kernel_size=1) # final conv 1x1
+            nn.Conv2d(self.c//4, num_classes, kernel_size=1) # final conv 1x1
             # Model output is 6xHxW, so we have a prob. distribution
             # for each pixel (each pixel has a logit for each of the 6 classes.)
         )
