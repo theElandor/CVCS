@@ -4,9 +4,15 @@ import torch.nn as nn
 import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel
+from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, VisionTransformerEncoder
+import torch
+import torch.nn as nn
+import torchvision.transforms.functional as functional
+import math
+from transformers import AutoModel
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
-	def __init__(self):
+	def __init__(self, num_classes):
 		super(Urnet, self).__init__()
 		self.residuals = []
     	# encoding part of the Unet vanilla architecture
@@ -20,7 +26,7 @@ class Urnet(nn.Module):
 			UnetEncodeLayer(128, 128, padding=1),
 		)
 		self.encode3 = nn.Sequential(
-			nn.MaxPool2d(kernel_size=2, stride=2, padding=1),
+			nn.MaxPool2d(kernel_size=2, stride=2),
 			UnetEncodeLayer(128, 256, padding=1),
 			UnetEncodeLayer(256, 256, padding=1),
 		)
@@ -57,7 +63,7 @@ class Urnet(nn.Module):
 		)
 		self.decode_forward4 = nn.Sequential(
 			UnetForwardDecodeLayer(128,64, padding=1),
-			nn.Conv2d(64, 6, kernel_size=1) # final conv 1x1
+			nn.Conv2d(64, num_classes, kernel_size=1) # final conv 1x1
 			# Model output is 6xHxW, so we have a prob. distribution
 			# for each pixel (each pixel has a logit for each of the 6 classes.)
 		)
@@ -77,7 +83,7 @@ class Urnet(nn.Module):
 		y3 = self.decode_forward2(c2)
 
 		y3 = self.upscale3(y3)
-		c3 = torch.concat((functional.center_crop(y3, 150), self.x2), 1)
+		c3 = torch.concat((functional.center_crop(y3, self.x2.shape[2]), self.x2), 1)
 		y4 = self.decode_forward3(c3)
 
 		y4 = self.upscale4(y4)
