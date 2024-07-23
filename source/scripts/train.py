@@ -6,7 +6,7 @@ from nets import Swin
 from torch.utils.data.sampler import SubsetRandomSampler
 from pathlib import Path
 from tqdm import tqdm
-from utils import validation_loss, save_model
+from utils import validation_loss, save_model, eval_model
 import matplotlib.pyplot as plt
 import os
 
@@ -17,11 +17,12 @@ validation = "D:\\Datasets\\GID15\\Validation"
 test = "D:\\Datasets\\GID15\\Test"
 checkpoint_directory = "D:\\weights\\swin" # directory to save checkpoints in
 extension = ".png" # extension of output files if produced.
-epochs = 20
+epochs = 10
 load_checkpoint = ""
 freq = 1 # checkpoint saving frequency. If set to 2, it will save a checkpoint every 2 epochs.
 verbose = True
-batch_size = 16
+batch_size = 16 # this parameter will be overwritten if a checkpoint is loaded
+precision_evaluation_freq = 2
 # checkpoints are saved in the specified directory as checkpoint_{epoch}. Make sure to backup them
 # END Control variables----------------------------------
 
@@ -53,6 +54,9 @@ opt = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0
 
 training_loss_values = []
 validation_loss_values = []
+
+macro_precision = []
+weighted_precision = []
 loss = 0 # pre-initialize loss to have global scope
 
 if load_checkpoint != "":
@@ -64,12 +68,17 @@ if load_checkpoint != "":
     loss = checkpoint['loss']
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
+    batch_size = checkpoint['batch_size']
+    macro_precision = checkpoint['macro_precision']
+    weighted_precision = checkpoint['weighted_precision']
 else:
     last_epoch = 0
 
 if not Path(checkpoint_directory).is_dir():
     print("Please provide a valid directory to save checkpoints in.")
 else:
+    validation_loss_values += validation_loss(net, validation_loader, crit, device, show_progress=True)
+    exit(0)
     for epoch in range(last_epoch, epochs):
         if verbose:
             pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch}')
@@ -96,7 +105,15 @@ else:
         validation_loss_values += validation_loss(net, validation_loader, crit, device)
         # 3) Append results to list
         if (epoch+1) % freq == 0: # save checkpoint every freq epochs            
-            save_model(epoch, net, opt, loss, training_loss_values, validation_loss_values, batch_size, checkpoint_directory)
+            save_model(epoch, net, opt, loss, training_loss_values, validation_loss_values, macro_precision, weighted_precision, batch_size, checkpoint_directory)
+            print("Saved checkpoint {}".format(epoch+1))
+        if (epoch+1) % precision_evaluation_freq == 0:
+            print("Evaluating precision after epoch {}".format(epoch+1))
+            precision_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = 1)
+            macro, weighted = eval_model(net, precision_loader, device, show_progress=True)
+            macro_precision.append(macro)
+            weighted_precision.append(weighted)
+
     print("Training Done!")
     print(f"Reached training loss: {training_loss_values[-1]}")
     print(f"Reached validation loss: {validation_loss_values[-1]}")
