@@ -27,10 +27,11 @@ def create_partitions(source_folders, dest_folder, data):
             shutil.move(os.path.join(mask_source, color), os.path.join(mask_dest, color))
             shutil.move(os.path.join(coord_source, coord), os.path.join(coord_dest, coord))
 
+root = "D:\\Datasets\\GID15"
+
 print("Warning: because of storage purposes, the original dataset will be deleted after the partition.")
 print("Make sure that you have a backup of your dataset.")
 c = input("Press any key to continue...")
-root = "D:\\Datasets\\GID15"
 ann_index = "Annotation__index"
 ann_color = "Annotation__color"
 coord_files = "Coordinate_files"

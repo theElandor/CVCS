@@ -6,7 +6,7 @@ import os
 from random import random
 import torchvision.transforms as T
 
-class Converter:
+class Converter: # WARNING: POSTDAM CONVERTER
 	def __init__(self):
 		self.color_to_label = {
             (1, 1, 0): 0,  # Yellow (cars)
@@ -50,61 +50,51 @@ class Converter:
 		class_label_mask = class_label_mask.reshape(H,W)		
 		return class_label_mask
       
-def eval_model(net, validation_loader, validation_len, device, dataset, show_progress = False, write_output=False, prefix=""):
+def eval_model(net, validation_loader, device, show_progress = False):
     # returns (macro, weighted) IoU
-    c = Converter()
     macro = 0
     weighted = 0
+    
     if show_progress:
-        pbar = tqdm(total=validation_len)
+        pbar = tqdm(total=len(validation_loader.dataset))
     with torch.no_grad():
         net.eval()
-        for i, (x,y, index) in enumerate(validation_loader):
+        for x,y in validation_loader:
             x, y = x.to(device), y.to(device)
-            y_pred = net(x)
-            x_ref = x.cpu()
+            y_pred = net(x.type(torch.float32))            
             y_pred = y_pred.squeeze().cpu()
             _,pred_mask = torch.max(y_pred, dim=0)
 
             prediction = pred_mask.cpu().numpy().reshape(-1)
             target = y.cpu().numpy().reshape(-1)        
             weighted += jsc(target,prediction, average='weighted') # takes into account label imbalance
-            macro += jsc(target,prediction, average='macro') # simple mean over each class.            
-            if(write_output):
-                fig ,axarr = plt.subplots(1,3)
-                _,target_transformed_mask,_ = dataset.__getitem__(index.item())
-
-                axarr[0].title.set_text('Original Image')
-                axarr[0].imshow(x_ref.squeeze().swapaxes(0,2).swapaxes(0,1))
-
-                axarr[1].title.set_text('Model Output')
-                axarr[1].imshow(c.iconvert(pred_mask))
-
-                axarr[2].title.set_text('Original Mask')
-                axarr[2].imshow(c.iconvert(target_transformed_mask))
-                plt.savefig(os.path.join("output", "{}_Image{}.png".format(prefix, i)))
-                plt.close(fig)
+            macro += jsc(target,prediction, average='macro') # simple mean over each class.                        
             if show_progress:
                 pbar.update(1)
-    macro_score = macro / validation_len
-    weighted_score = weighted / validation_len
+    macro_score = macro / len(validation_loader.dataset)
+    weighted_score = weighted / len(validation_loader.dataset)
     if show_progress:
         pbar.close()
-    if(write_output):
-        print("Macro IoU score: {}".format(macro_score))        
-        print("Weigthed IoU score: {}".format(weighted_score))
+    print("Macro IoU score: {}".format(macro_score))        
+    print("Weigthed IoU score: {}".format(weighted_score))
     return macro_score, weighted_score
     
     # validation_loss(net, validation_base_loader, len(val_base_indices))
-def validation_loss(net, loader, crit, device):
+def validation_loss(net, loader, crit, device, show_progress = False):
     loss_values = []
     net.eval()
+    if show_progress:
+        pbar = tqdm(total=len(loader))
     with torch.no_grad():
-        for _, (image, mask, _) in enumerate(loader):            
+        for image, mask in loader:
             image, mask = image.to(device), mask.to(device)        
-            mask_pred = net(image).to(device)
-            loss = crit(mask_pred, mask)
+            mask_pred = net(image.type(torch.float32)).to(device)
+            loss = crit(mask_pred, mask.squeeze().type(torch.long))
             loss_values.append(loss.item())
+            if show_progress:
+                pbar.update(1)
+    if show_progress:
+        pbar.close()
     return loss_values
 
 def save_loss(filename, values):
@@ -112,7 +102,7 @@ def save_loss(filename, values):
         for v in values:
             f.write(str(v)+"\n")
 
-def save_model(epoch, net, opt, loss, train_loss, val_loss, batch_size, checkpoint_dir):
+def save_model(epoch, net, opt, loss, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir):
     torch.save({
         'epoch': epoch,
         'model_state_dict': net.state_dict(),
@@ -121,6 +111,8 @@ def save_model(epoch, net, opt, loss, train_loss, val_loss, batch_size, checkpoi
         'training_loss_values': train_loss,
         'validation_loss_values': val_loss,
         'batch_size': batch_size,
+        'macro_precision': macro_precision, 
+        'weighted_precision': weighted_precision,
         }, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
      
 
