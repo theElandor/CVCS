@@ -184,9 +184,11 @@ class Swin(nn.Module): # swinT + unet head
         self.c = embed_dim
         self.h = size
         self.w = size
-        self.num_classes = num_classes
-        #self.swin = SwinTransformer(pretrain_img_size=size, in_channels=3, embed_dims=embed_dim, patch_size=4)        
-        model_name = "microsoft/swin-tiny-patch4-window7-224"        
+        self.num_classes = num_classes        
+        if embed_dim == 96:             
+            model_name = "microsoft/swin-tiny-patch4-window7-224"
+        elif embed_dim == 128:
+            model_name = "microsoft/swin-base-patch4-window7-224"
         self.swin = AutoModel.from_pretrained(model_name)
         self.upscale1 = UnetUpscaleLayer(2, self.c*8)
         self.decode_forward1 = UnetForwardDecodeLayer(self.c*8,self.c*4, padding=1)
