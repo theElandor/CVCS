@@ -53,7 +53,7 @@ if  'load_checkpoint' in config.keys():
     checkpoint = torch.load(config['load_checkpoint'])
     net.load_state_dict(checkpoint['model_state_dict'])
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
-    last_epoch = checkpoint['epoch']
+    last_epoch = checkpoint['epoch']+1
     loss = checkpoint['loss']
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
@@ -70,7 +70,7 @@ else:
     for epoch in range(last_epoch, config['epochs']):        
         print("Started epoch {}".format(epoch+1), flush=True)            
         if config['verbose']:            
-            pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch}')
+            pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch+1}')
         net.train()    
         for batch_index, (image, mask) in enumerate(train_loader):
             image, mask = image.to(device), mask.to(device)
