@@ -36,17 +36,12 @@ ann_index = "Annotation__index"
 ann_color = "Annotation__color"
 coord_files = "Coordinate_files"
 images = "Image__8bit_NirRGB"
-image_files = [item for item in os.listdir(os.path.join(root, images))]
+#image_files = [item for item in os.listdir(os.path.join(root, images))]
 
-label_index_files = [item for item in os.listdir(os.path.join(root, ann_index))]
-for f in image_files:
-    if not get_label(f) in label_index_files:
-        print("Something went wrong")
-        raise Exception
 random_seed = 42
 test_split = .1
 validation_split = .1
-tot_images = len(image_files)
+tot_images = 150
 indices = list(range(tot_images))
 np.random.seed(random_seed)
 np.random.shuffle(indices)
@@ -59,13 +54,18 @@ train_indices = indices[validation_count+test_count:]
 print(validation_indices)
 print(test_indices)
 print(train_indices)
-
-data = {
-    'Validation': [(image_files[idx], get_label(image_files[idx]), get_label_color(image_files[idx]), get_coord(image_files[idx]))  for idx in validation_indices],
-    'Test': [(image_files[idx], get_label(image_files[idx]), get_label_color(image_files[idx]), get_coord(image_files[idx])) for idx in test_indices],
-    'Train':[(image_files[idx], get_label(image_files[idx]), get_label_color(image_files[idx]), get_coord(image_files[idx])) for idx in train_indices]
-}
+# data = {
+#     'Validation': [(image_files[idx], get_label(image_files[idx]), get_label_color(image_files[idx]), get_coord(image_files[idx]))  for idx in validation_indices],
+#     'Test': [(image_files[idx], get_label(image_files[idx]), get_label_color(image_files[idx]), get_coord(image_files[idx])) for idx in test_indices],
+#     'Train':[(image_files[idx], get_label(image_files[idx]), get_label_color(image_files[idx]), get_coord(image_files[idx])) for idx in train_indices]
+# }
+data = {partition:[] for partition in "Test Train Validation".split(" ")}
+for partition in ["Test", "Train", "Validation"]:    
+    with open(os.path.join("test", f"{partition}_{images}.txt")) as f:
+        grid = [x.strip() for x in f.readlines()]
+        for file in grid:
+            data[partition].append((file, get_label(file), get_label_color(file), get_coord(file)))
 
 source_folders = [os.path.join(root, folder) for folder in [images, ann_index, ann_color, coord_files]]
 dest_folders = {partition:[os.path.join(root, partition, folder) for folder in [images, ann_index, ann_color, coord_files]] for partition in ["Validation", "Test", "Train"]}
-create_partitions(source_folders, dest_folders, data)
+#create_partitions(source_folders, dest_folders, data)
