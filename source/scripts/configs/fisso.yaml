@@ -13,3 +13,4 @@ val_progress: True # print val. progres. Keep false if you train on remote serve
 # TSwin: Tiny swin transformer backbone (hugging face) + unet decoder with residuals
 # BSwin: Base swin transformer backbone (hugging face) + unet decoder with residuals
 # Unet: Classic unet network (2015 medical segmentation paper)
+opt: SGD1

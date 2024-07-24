@@ -60,7 +60,7 @@ def save_loss(filename, values):
         for v in values:
             f.write(str(v)+"\n")
 
-def save_model(epoch, net, opt, loss, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir):
+def save_model(epoch, net, opt, loss, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir, optimizer):
     torch.save({
         'epoch': epoch,
         'model_state_dict': net.state_dict(),
@@ -71,6 +71,7 @@ def save_model(epoch, net, opt, loss, train_loss, val_loss, macro_precision, wei
         'batch_size': batch_size,
         'macro_precision': macro_precision, 
         'weighted_precision': weighted_precision,
+        'optimizer': optimizer,
         }, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
      
 
@@ -125,3 +126,11 @@ def print_sizes(net, train_dataset, validation_dataset, test_dataset):
     print("Training samples: {}".format(train_dataset.__len__()))
     print("Validation samples: {}".format(validation_dataset.__len__()))
     print("Test samples: {}".format(test_dataset.__len__()))     
+
+def load_optimizer(optimizer, net):
+    if optimizer == 'SGD1':
+        return torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.00001)
+    elif optimizer == 'ADAM1':
+        return torch.optim.Adam(lr=5e-4)
+    else:
+        raise ValueError("Optimizer name not valid.")
