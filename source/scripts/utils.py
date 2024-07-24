@@ -125,12 +125,12 @@ def print_sizes(net, train_dataset, validation_dataset, test_dataset):
     print(f"Number of parameters : {num_params}")
     print("Training samples: {}".format(train_dataset.__len__()))
     print("Validation samples: {}".format(validation_dataset.__len__()))
-    print("Test samples: {}".format(test_dataset.__len__()))     
+    print("Test samples: {}".format(test_dataset.__len__()), flush=True)
 
 def load_optimizer(optimizer, net):
     if optimizer == 'SGD1':
         return torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.00001)
     elif optimizer == 'ADAM1':
-        return torch.optim.Adam(lr=5e-4)
+        return torch.optim.Adam(net.parameters(), lr=5e-4)
     else:
         raise ValueError("Optimizer name not valid.")
