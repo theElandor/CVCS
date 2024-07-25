@@ -112,6 +112,8 @@ class GF5BP(Dataset):
 		# rows, cols
 		self.tiles_in_img_shape = (self.image_shape[0] // patch_shape[0], self.image_shape[1] // patch_shape[1])
 		self.tiles_per_img = self.tiles_in_img_shape[0] * self.tiles_in_img_shape[1]
+
+		self.class_weights = None
 	
 	def __len__(self):
 		return len(self.files) * self.tiles_per_img
@@ -125,9 +127,9 @@ class GF5BP(Dataset):
 			filepath = self.files[self.last_image_idx]
 			self.last_image = tv_tensors.Image(Image.open(filepath))[1:,:,:]
 			if self.color_masks:
-				self.last_target = tv_tensors.Image(Image.open(os.path.join(self.clrmask_dir, Path(filepath).stem + '_24label.tif')))[1:,:,:]
+				self.last_target = tv_tensors.Image(Image.open(self.__get_color_mask_path(filepath)))[1:,:,:]
 			else:
-				self.last_target = tv_tensors.Mask(Image.open(os.path.join(self.idxmask_dir, Path(filepath).stem + '_24label.png')))
+				self.last_target = tv_tensors.Mask(Image.open(self.__get_idx_mask_path(filepath)))
 		# tile index, row major ordering
 		tile_idx = idx % self.tiles_per_img
 		# row, col position of the tile in our full image
@@ -142,3 +144,23 @@ class GF5BP(Dataset):
 			mask_img = self.target_transforms(mask_img)
 
 		return (tif_img, mask_img)
+
+	def __get_color_mask_path(self, base_path):
+		return os.path.join(self.clrmask_dir, Path(base_path).stem + '_24label.tif')
+
+	def __get_idx_mask_path(self, base_path):
+		return os.path.join(self.idxmask_dir, Path(base_path).stem + '_24label.png')
+
+	def get_class_weights(self):
+		'''
+		Returns class weights (probabilities) over the dataset.
+		'''
+		if not self.class_weights:
+			self.class_weights = torch.zeros(25, dtype=torch.float32)
+			for img in self.files:
+				mask = tv_tensors.Mask(Image.open(self.__get_idx_mask_path(img)))
+				for cl in range(25):
+					self.class_weights[cl] += torch.sum(mask == cl)
+			self.class_weights /= torch.sum(self.class_weights)
+
+		return self.class_weights
