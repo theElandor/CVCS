@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
-from utils import validation_loss, save_model, eval_model, load_network, load_gaofen, print_sizes, load_optimizer
+from utils import validation_loss, save_model, eval_model, load_network, load_gaofen, print_sizes, load_optimizer, load_loss
 import yaml
 import sys
 inFile = sys.argv[1]
@@ -32,7 +32,11 @@ print_sizes(net, train_dataset, validation_dataset, test_dataset)
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config['batch_size'])
 validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = config['batch_size'])
 #for validation loader batch size is default, so 1.
-crit = nn.CrossEntropyLoss()
+try:
+    crit = load_loss(config['loss'], device)
+except:
+    print("Error in loading loss module.")
+    exit(0)
 
 try:
     opt = load_optimizer(config['opt'], net)
@@ -46,15 +50,12 @@ validation_loss_values = []
 macro_precision = []
 weighted_precision = []
 
-loss = 0 # pre-initialize loss to have global scope
-
 if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
     checkpoint = torch.load(config['load_checkpoint'])
     net.load_state_dict(checkpoint['model_state_dict'])
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
     last_epoch = checkpoint['epoch']+1
-    loss = checkpoint['loss']
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
     config['batch_size'] = checkpoint['batch_size']
@@ -97,11 +98,13 @@ else:
             print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
             precision_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = 1)
             macro, weighted = eval_model(net, precision_loader, device, show_progress=config['val_progress'])
+            print(f"mIou: {macro}")
+            print(f"weighted mIoU: {weighted}", flush=True)
             macro_precision.append(macro)
             weighted_precision.append(weighted)
 
         if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs            
-            save_model(epoch, net, opt, loss, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
+            save_model(epoch, net, opt, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
                        config['batch_size'], 
                        config['checkpoint_directory'], 
                        config['opt']

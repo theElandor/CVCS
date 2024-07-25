@@ -8,6 +8,8 @@ import torchvision.transforms as T
 import nets
 from dataset import GF5BP
 import numpy as np
+import torch.nn as nn
+import loss
 
 def eval_model(net, validation_loader, device, show_progress = False):
     # returns (macro, weighted) IoU
@@ -60,12 +62,11 @@ def save_loss(filename, values):
         for v in values:
             f.write(str(v)+"\n")
 
-def save_model(epoch, net, opt, loss, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir, optimizer):
+def save_model(epoch, net, opt, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir, optimizer):
     torch.save({
         'epoch': epoch,
         'model_state_dict': net.state_dict(),
-        'optimizer_state_dict': opt.state_dict(),
-        'loss': loss.item(),
+        'optimizer_state_dict': opt.state_dict(),        
         'training_loss_values': train_loss,
         'validation_loss_values': val_loss,
         'batch_size': batch_size,
@@ -134,3 +135,12 @@ def load_optimizer(optimizer, net):
         return torch.optim.Adam(net.parameters(), lr=5e-4)
     else:
         raise ValueError("Optimizer name not valid.")
+    
+
+def load_loss(name, device):
+    if name == "CEL":
+        return nn.CrossEntropyLoss()
+    elif name == "DEL":        
+        return loss.DiceEntropyLoss(device)
+    else:
+        raise Exception
