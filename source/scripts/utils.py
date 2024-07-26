@@ -6,10 +6,12 @@ import os
 from random import random
 import torchvision.transforms as T
 import nets
-from dataset import GF5BP
+from dataset import GF5BP, Cropped5BP
 import numpy as np
 import torch.nn as nn
 import loss
+from PIL import Image
+import converters
 
 def eval_model(net, validation_loader, device, show_progress = False):
     # returns (macro, weighted) IoU
@@ -35,8 +37,6 @@ def eval_model(net, validation_loader, device, show_progress = False):
     weighted_score = weighted / len(validation_loader.dataset)
     if show_progress:
         pbar.close()
-    print("Macro IoU score: {}".format(macro_score))        
-    print("Weigthed IoU score: {}".format(weighted_score))
     return macro_score, weighted_score
     
     # validation_loss(net, validation_base_loader, len(val_base_indices))
@@ -91,18 +91,26 @@ class RandomFlip:
             mask = T.functional.vflip(mask)
         return img, mask
     
-def inference(net, dataset, indexes, device):
+def inference(net, dataset, indexes, device, converter, mask_only=False):
     net.eval()
     with torch.no_grad():
         for index in indexes:
-            image, mask = dataset[index]
+            image,_, mask = dataset[index]
             image, mask = image.to(device), mask.to(device)
-            output = net(image.unsqueeze(0).type(torch.float32))
-            f, axarr = plt.subplots(1,3)
-            axarr[0].imshow(image.permute(1,2,0).cpu())
-            axarr[1].imshow(mask.permute(1,2,0).cpu())
-            axarr[2].imshow(torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2))
-            plt.savefig(os.path.join("output", f"{index}.png"))
+            output = net(image.unsqueeze(0).type(torch.float32))            
+            pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)         
+            if not mask_only:
+                f, axarr = plt.subplots(1,3)
+                axarr[0].imshow(image.permute(1,2,0).cpu())
+                axarr[1].imshow(mask.permute(1,2,0).cpu())
+                axarr[2].imshow(converter.iconvert(pred_index))
+                plt.savefig(os.path.join("output", f"{index}.png"))
+            else:
+                tensor = converter.iconvert(pred_index)
+                arr = ((tensor*255).type(torch.uint8)).numpy()
+                image = Image.fromarray(arr)
+                image.save(os.path.join("output", f"{index}.png"))
+                
 
 def load_network(netname):
     if netname == 'TSwin':
@@ -120,7 +128,13 @@ def load_gaofen(train, validation, test):
     validation_dataset = GF5BP(validation)
     test_dataset = GF5BP(test)
     return train_dataset, validation_dataset, test_dataset
-     
+
+def load_gaofen_static(train, validation, test):
+    train_dataset = Cropped5BP(train)
+    validation_dataset = Cropped5BP(validation)
+    test_dataset = Cropped5BP(test)
+    return train_dataset, validation_dataset, test_dataset
+
 def print_sizes(net, train_dataset, validation_dataset, test_dataset):
     num_params = sum([np.prod(p.shape) for p in net.parameters()])
     print(f"Number of parameters : {num_params}")
@@ -144,3 +158,50 @@ def load_loss(name, device):
         return loss.DiceEntropyLoss(device)
     else:
         raise Exception
+    
+def load_dataset(config):
+    m = config['mode']
+    if 'dataset' in config.keys():
+        print("Only one dataset specified. You are running in inference mode.")
+        if m == 'static':
+            return Cropped5BP(config['dataset'], inference=True)
+        else:
+            print("This mode is still not supported in inference mode.")
+            raise Exception
+    if  m == 'runtime':
+        return load_gaofen(config['train'], config['validation'], config['test'])        
+    elif m == 'static':
+        return load_gaofen_static(config['train'], config['validation'], config['test'])
+    else:
+        print("Invalid dataset mode.")
+        raise Exception
+
+def load_loaders(train_dataset, validation_dataset, config):
+    if config['mode'] == 'runtime':
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config['batch_size'])
+        validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = config['batch_size'])
+    elif config['mode'] == 'static':
+        train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, batch_size=config['batch_size'])
+        validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=config['batch_size'])
+    return train_loader, validation_loader
+
+
+def load_device(config):
+    if config['device'] == 'gpu':
+        assert torch.cuda.is_available(), "Notebook is not configured properly!"
+        device = 'cuda:0'
+    else:
+        device = torch.device('cpu')
+    print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
+
+def load_checkpoint(config, net):
+    if  'load_checkpoint' in config.keys():
+    # Load model checkpoint (to resume training)    
+        checkpoint = torch.load(config['load_checkpoint'])
+        net.load_state_dict(checkpoint['model_state_dict'])                
+        TL = checkpoint['training_loss_values']
+        VL = checkpoint['validation_loss_values']        
+        print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)        
+        print(f"mIoU: {checkpoint['macro_precision']}")
+        print(f"wIoU: {checkpoint['weighted_precision']}")        
+        return TL, VL

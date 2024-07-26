@@ -7,51 +7,7 @@ import torchvision.transforms as v2
 from torchvision.transforms.functional import center_crop
 from pathlib import Path
 import torch
-
-class Converter: # WARNING: POSTDAM CONVERTER
-	def __init__(self):
-		self.color_to_label = {
-            (1, 1, 0): 0,  # Yellow (cars)
-            (0, 1, 0): 1, # Green (trees)
-            (0, 0, 1): 2, # Blue (buildings)
-            (1, 0, 0): 3,  # Red (clutter)
-            (1, 1, 1): 4, # White(impervious surface),
-            (0, 1, 1): 5 # Aqua (low vegetation)
-        }
-	def iconvert(self, mask):
-		"""
-		Function needed to convert the class label mask needed by CrossEntropy Function
-		to the original mask.
-		input: class label mask, HxW
-		output: original mask, HxWx3
-		"""
-		H,W = mask.shape
-		colors = torch.tensor(list(self.color_to_label.keys())).type(torch.float64)
-		labels = torch.tensor(list(self.color_to_label.values())).type(torch.float64)
-		output = torch.ones(H,W,3).type(torch.float64)
-		for color, label in zip(colors, labels):
-			match = (mask == label)
-			output[match] = color
-		return output
-	def convert(self,mask):
-		"""
-		Function needed to convert the RGB (Nx3x300x300) mask into a 
-		'class label mask' needed when computing the loss function.
-		In this new representation for each pixel we have a value
-		between [0,C) where C is the number of classes, so 6 in this case.
-		This new tensor will have shape Nx300x300.
-		"""			
-		C,H,W = mask.shape
-		colors = torch.tensor(list(self.color_to_label.keys()))
-		labels = torch.tensor(list(self.color_to_label.values()))
-		reshaped_mask = mask.permute(1, 2, 0).reshape(-1, 3)
-		class_label_mask = torch.zeros(reshaped_mask.shape[0], dtype=torch.long)
-		for color, label in zip(colors, labels):
-			match = (reshaped_mask == color.type(torch.float64)).all(dim=1)
-			class_label_mask[match] = label
-		class_label_mask = class_label_mask.reshape(H,W)		
-		return class_label_mask
-
+import converters
 class PostDamDataset(Dataset):
 	def __init__(self, img_dir, masks_dir, extension,transforms=None, crop=None, augment_mask=False):
 		self.idir = img_dir
@@ -60,7 +16,7 @@ class PostDamDataset(Dataset):
 		self.extension = extension
 		self.items = os.listdir(self.idir)
 		self.files = [item for item in self.items if os.path.isfile(os.path.join(self.idir, item))]
-		self.c = Converter()
+		self.c = converters.PostdamConverter()
 		self.crop = crop
 		self.augment_mask = augment_mask
 	def __len__(self):
@@ -142,3 +98,24 @@ class GF5BP(Dataset):
 			mask_img = self.target_transforms(mask_img)
 
 		return (tif_img, mask_img)
+
+
+class Cropped5BP(Dataset):
+	"""
+	5BP datasets for cropped images.
+	"""
+	def __init__(self, root, inference=False):
+		self.image_dir = os.path.join(root, 'Image__8bit_NirRGB')
+		self.index_dir = os.path.join(root, 'Annotation__index')
+		self.color_dir = os.path.join(root, 'Annotation__color')
+		self.inference = inference
+	def __len__(self):
+		files = [os.path.join(self.image_dir,item) for item in os.listdir(path=self.image_dir)]		
+		return len(files)
+	def __getitem__(self, idx):
+		image = tv_tensors.Image(Image.open(os.path.join(self.image_dir, str(idx)+".png")))
+		index = tv_tensors.Mask(Image.open(os.path.join(self.index_dir, str(idx)+".png")))[0,:,:]
+		color = ToTensor()(Image.open(os.path.join(self.color_dir, str(idx)+".png")))		
+		if self.inference:
+			return (image, index, color)
+		else: return (image, index) #color

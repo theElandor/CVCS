@@ -1,0 +1,13 @@
+net: Unet
+load_checkpoint: D:\weights\small_unet\checkpoint16
+mode: static
+# for now only static mode is supported.
+dataset: D:\Datasets\GID15\Test\Patches_224x224
+device: gpu
+mask_only: True
+# if mask_only is set to False the plot will contain the original
+# image, the original mask and the predicted mask
+# otherwise it will only contain the predicted mask
+range: [0,960] # if range is specified, the model will segment the patches in the specified bounds.
+# otherwise, it will segment the whole specified dataset.
+out_image: "test.png" #generated images will be put in a grid to get a full-size prediction

@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
-from utils import validation_loss, save_model, eval_model, load_network, load_gaofen, print_sizes, load_optimizer, load_loss
+from utils import validation_loss, save_model, eval_model, load_network, load_dataset, print_sizes, load_optimizer, load_loss, load_loaders, load_device
 import yaml
 import sys
 inFile = sys.argv[1]
@@ -12,13 +12,8 @@ with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 print("LOADED CONFIGURATIONS:")
 print(config)
-
-train_dataset, validation_dataset, test_dataset = load_gaofen(config['train'], config['validation'], config['test'])
-
-# NETWORK INITIALIZATION
-assert torch.cuda.is_available(), "Notebook is not configured properly!"
-device = 'cuda:0'
-print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
+train_dataset, validation_dataset, test_dataset = load_dataset(config)
+device = load_device(config)
 
 try:
     net = load_network(config['net']).to(device)
@@ -27,17 +22,13 @@ except:
     exit(0)
 
 print_sizes(net, train_dataset, validation_dataset, test_dataset)
+train_loader, validation_loader = load_loaders(train_dataset, validation_dataset, config)
 
-#Dataset train/validation split according to validation split and seed.
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config['batch_size'])
-validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = config['batch_size'])
-#for validation loader batch size is default, so 1.
 try:
     crit = load_loss(config['loss'], device)
 except:
     print("Error in loading loss module.")
     exit(0)
-
 try:
     opt = load_optimizer(config['opt'], net)
 except:
@@ -96,7 +87,7 @@ else:
 
         if (epoch+1) % config['precision_evaluation_freq'] == 0:
             print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
-            precision_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = 1)
+            precision_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1)
             macro, weighted = eval_model(net, precision_loader, device, show_progress=config['val_progress'])
             print(f"mIou: {macro}")
             print(f"weighted mIoU: {weighted}", flush=True)
