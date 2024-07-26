@@ -4,7 +4,7 @@ test: C:\Users\eros\CVCS\dataset\Gaofen_224x224\Test
 mode: static
 device: gpu
 # static: specified paths must contain cropped patches
-# dynamic: specified paths must contain original sized images
+# runtime: specified paths must contain original sized images
 checkpoint_directory: D:\weights\wsmall_unet # directory to save checkpoints in
 
 #load_checkpoint: D:\weights\swin\checkpoint10
