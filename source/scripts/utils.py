@@ -151,11 +151,15 @@ def load_optimizer(optimizer, net):
         raise ValueError("Optimizer name not valid.")
     
 
-def load_loss(name, device):
+def load_loss(name, device, dataset=None):
     if name == "CEL":
         return nn.CrossEntropyLoss()
     elif name == "DEL":        
         return loss.DiceEntropyLoss(device)
+    elif name == "wCEL":
+        print("Computing class weights, it might take several minutes...")
+        weights = dataset.get_class_weights().to(device)
+        return nn.CrossEntropyLoss(weight=weights)
     else:
         raise Exception
     
@@ -193,6 +197,7 @@ def load_device(config):
     else:
         device = torch.device('cpu')
     print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
+    return device
 
 def load_checkpoint(config, net):
     if  'load_checkpoint' in config.keys():

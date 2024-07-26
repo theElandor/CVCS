@@ -25,7 +25,7 @@ print_sizes(net, train_dataset, validation_dataset, test_dataset)
 train_loader, validation_loader = load_loaders(train_dataset, validation_dataset, config)
 
 try:
-    crit = load_loss(config['loss'], device)
+    crit = load_loss(config['loss'], device, train_dataset)
 except:
     print("Error in loading loss module.")
     exit(0)

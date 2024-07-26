@@ -55,7 +55,7 @@ class GaofenConverter:
             (200, 0,    200): 5, #garden land
             (150, 0,    250): 6, #arbor forest
             (150, 150,  250): 7, #shrub forest
-            (200, 150,  200): 8, #park
+             (200, 150,  200): 8, #park
             (250, 200,  0)  : 9, #natural meadow
             (200, 200,  0)  : 10, #artificial meadow
             (0,   0,   200) : 11, #river

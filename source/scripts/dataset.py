@@ -8,6 +8,8 @@ from torchvision.transforms.functional import center_crop
 from pathlib import Path
 import torch
 import converters
+from abc import ABC, abstractmethod
+
 class PostDamDataset(Dataset):
 	def __init__(self, img_dir, masks_dir, extension,transforms=None, crop=None, augment_mask=False):
 		self.idir = img_dir
@@ -38,7 +40,7 @@ class PostDamDataset(Dataset):
 			final_mask = center_crop(final_mask, self.crop)
 		return (final_image, final_mask, idx)
 
-class GF5BP(Dataset):
+class GF5BP(Dataset, ABC):
 	'''
 	5 Billion Pixels Dataset.
 	This dataset considers crops of the given shape of the original images.
@@ -99,8 +101,8 @@ class GF5BP(Dataset):
 		if self.target_transforms:
 			mask_img = self.target_transforms(mask_img)
 
-		return (tif_img, mask_img)
-
+		return (tif_img, mask_img)	
+	
 	def __get_color_mask_path(self, base_path):
 		return os.path.join(self.clrmask_dir, Path(base_path).stem + '_24label.tif')
 
@@ -117,10 +119,9 @@ class GF5BP(Dataset):
 				mask = tv_tensors.Mask(Image.open(self.__get_idx_mask_path(img)))
 				for cl in range(25):
 					self.class_weights[cl] += torch.sum(mask == cl)
-			self.class_weights /= torch.sum(self.class_weights)
+			self.class_weights = torch.sum(self.class_weights) / self.class_weights # we need the inverse: low probability should get big weight
 
 		return self.class_weights
-
 
 class Cropped5BP(Dataset):
 	"""
@@ -130,7 +131,9 @@ class Cropped5BP(Dataset):
 		self.image_dir = os.path.join(root, 'Image__8bit_NirRGB')
 		self.index_dir = os.path.join(root, 'Annotation__index')
 		self.color_dir = os.path.join(root, 'Annotation__color')
+		self.files = [os.path.join(self.image_dir,item) for item in os.listdir(path=self.image_dir)]		
 		self.inference = inference
+		self.class_weights = None
 	def __len__(self):
 		files = [os.path.join(self.image_dir,item) for item in os.listdir(path=self.image_dir)]		
 		return len(files)
@@ -141,3 +144,21 @@ class Cropped5BP(Dataset):
 		if self.inference:
 			return (image, index, color)
 		else: return (image, index) #color
+
+	# NEED REFACTOR, REPLICATED CODE!
+	def __get_idx_mask_path(self, base_path):
+		return os.path.join(self.index_dir, Path(base_path).stem + '.png')
+
+	def get_class_weights(self):
+		'''
+		Returns class weights (probabilities) over the dataset.
+		'''
+		if not self.class_weights:
+			self.class_weights = torch.zeros(25, dtype=torch.float32)
+			for img in self.files:
+				mask = tv_tensors.Mask(Image.open(self.__get_idx_mask_path(img)))
+				for cl in range(25):
+					self.class_weights[cl] += torch.sum(mask == cl)
+			self.class_weights = torch.sum(self.class_weights) / self.class_weights # we need the inverse: low probability should get big weight
+
+		return self.class_weights

@@ -5,10 +5,11 @@ mode: static
 device: gpu
 # static: specified paths must contain cropped patches
 # dynamic: specified paths must contain original sized images
-checkpoint_directory: D:\weights\small_unet # directory to save checkpoints in
-# uncomment load_checkpoint if you want to load a checkpoint
+checkpoint_directory: D:\weights\wsmall_unet # directory to save checkpoints in
+
 #load_checkpoint: D:\weights\swin\checkpoint10
-epochs: 30 # number of epochs.
+
+epochs: 20 # number of epochs.
 # warning: if you ended at epoch 10 at last checkpoint and you want to train for 10 more epochs,
 # then set this value to 20 (10 + 10)
 
@@ -17,13 +18,14 @@ verbose: True # show progress bar during epochs. Keep false if you train on remo
 batch_size: 4 # this parameter will be overwritten if a checkpoint is loaded
 precision_evaluation_freq: 1 # if set to 2, it will evaluate model precision once every 2 epochs
 net: Unet # network to load. 
-val_progress: True # print val. progres. Keep false if you train on remote server
+val_progress: True # print val. progres. Set to false if you train on remote server
 # Avaliable models:
 # TSwin: Tiny swin transformer backbone (hugging face) + unet decoder with residuals
 # BSwin: Base swin transformer backbone (hugging face) + unet decoder with residuals
 # Unet: Classic unet network (2015 medical segmentation paper)
 opt: ADAM1
-loss: CEL
+loss: wCEL
 # DEL: DiceEntropyLoss
 # CEL: CrossEntropyLoss
+# wCEL: CrossEntropyLoss with weights
 # DL: DiceLoss
