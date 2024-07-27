@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms.functional as functional
 import math
-from transformers import AutoModel
+from transformers import AutoModel, AutoImageProcessor
 from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, VisionTransformerEncoder
 import torch
 import torch.nn as nn
@@ -179,17 +179,19 @@ class Tunet(nn.Module): # Unet + vision transformer
         return segmap
 
 class Swin(nn.Module): # swinT + unet head
-    def __init__(self, embed_dim, size, num_classes):
+    def __init__(self, embed_dim, size, num_classes, device):
         super(Swin, self).__init__()
         self.c = embed_dim
         self.h = size
         self.w = size
         self.num_classes = num_classes        
+        self.device = device
         if embed_dim == 96:             
             model_name = "microsoft/swin-tiny-patch4-window7-224"
         elif embed_dim == 128:
             model_name = "microsoft/swin-base-patch4-window7-224"
         self.swin = AutoModel.from_pretrained(model_name)
+        self.image_processor = AutoImageProcessor.from_pretrained(model_name)        
         self.upscale1 = UnetUpscaleLayer(2, self.c*8)
         self.decode_forward1 = UnetForwardDecodeLayer(self.c*8,self.c*4, padding=1)
         self.upscale2 = UnetUpscaleLayer(2, self.c*4)    
@@ -205,7 +207,8 @@ class Swin(nn.Module): # swinT + unet head
             # for each pixel (each pixel has a logit for each of the 6 classes.)
         )
     def forward(self, x):
-        self.r1, self.r2, self.r3, _, self.r4 = self.swin(x,return_dict=True, output_hidden_states=True)['hidden_states']
+        inputs = self.image_processor(x, return_tensors="pt")
+        self.r1, self.r2, self.r3, _, self.r4 = self.swin(inputs['pixel_values'].to(self.device),return_dict=True, output_hidden_states=True)['hidden_states']
         s = int(math.sqrt(self.r4.shape[1]))
         self.r4 = self.r4.swapaxes(1,2).reshape(-1,self.c*8,s,s)
         self.r3 = self.r3.swapaxes(1,2).reshape(-1,self.c*4,s*2,s*2)

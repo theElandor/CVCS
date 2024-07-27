@@ -16,7 +16,7 @@ train_dataset, validation_dataset, test_dataset = load_dataset(config)
 device = load_device(config)
 
 try:
-    net = load_network(config['net']).to(device)
+    net = load_network(config['net'], device)
 except:
     print("Error in loading network.")
     exit(0)
