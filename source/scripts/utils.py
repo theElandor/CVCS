@@ -112,13 +112,13 @@ def inference(net, dataset, indexes, device, converter, mask_only=False):
                 image.save(os.path.join("output", f"{index}.png"))
                 
 
-def load_network(netname):
+def load_network(netname, device):
     if netname == 'TSwin':
-        return nets.Swin(96,224,25)
+        return nets.Swin(96,224,25, device).to(device)
     elif netname == 'BSwin':
-        return nets.Swin(128,224,25)
+        return nets.Swin(128,224,25, device).to(device)
     elif netname == 'Unet':
-        return nets.Urnet(25)
+        return nets.Urnet(25).to(device)
     else:
         raise ValueError("Invalid network name.")
     
