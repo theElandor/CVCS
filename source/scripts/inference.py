@@ -17,7 +17,7 @@ print(config)
 device = utils.load_device(config)
 
 try:
-    net = utils.load_network(config['net']).to(device)
+    net = utils.load_network(config, device).to(device)
 except:
     print("Error in loading network.")
     exit(0)
