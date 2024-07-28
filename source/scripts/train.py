@@ -16,7 +16,7 @@ train_dataset, validation_dataset, test_dataset = load_dataset(config)
 device = load_device(config)
 
 try:
-    net = load_network(config['net'], device)
+    net = load_network(config, device)
 except:
     print("Error in loading network.")
     exit(0)
@@ -25,12 +25,12 @@ print_sizes(net, train_dataset, validation_dataset, test_dataset)
 train_loader, validation_loader = load_loaders(train_dataset, validation_dataset, config)
 
 try:
-    crit = load_loss(config['loss'], device, train_dataset)
+    crit = load_loss(config, device, train_dataset)
 except:
     print("Error in loading loss module.")
     exit(0)
 try:
-    opt = load_optimizer(config['opt'], net)
+    opt = load_optimizer(config, net)
 except:
     print("Error in loading optimizer")
     exit(0)

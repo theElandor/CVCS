@@ -112,7 +112,8 @@ def inference(net, dataset, indexes, device, converter, mask_only=False):
                 image.save(os.path.join("output", f"{index}.png"))
                 
 
-def load_network(netname, device):
+def load_network(config, device):
+    netname = config['net']
     if netname == 'TSwin':
         return nets.Swin(96,224,25, device).to(device)
     elif netname == 'BSwin':
@@ -142,7 +143,8 @@ def print_sizes(net, train_dataset, validation_dataset, test_dataset):
     print("Validation samples: {}".format(validation_dataset.__len__()))
     print("Test samples: {}".format(test_dataset.__len__()), flush=True)
 
-def load_optimizer(optimizer, net):
+def load_optimizer(config, net):
+    optimizer = config['opt']
     if optimizer == 'SGD1':
         return torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.00001)
     elif optimizer == 'ADAM1':
@@ -151,7 +153,8 @@ def load_optimizer(optimizer, net):
         raise ValueError("Optimizer name not valid.")
     
 
-def load_loss(name, device, dataset=None):
+def load_loss(config, device, dataset=None):
+    name = config['loss']
     if name == "CEL":
         return nn.CrossEntropyLoss()
     elif name == "DEL":        
