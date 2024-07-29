@@ -53,25 +53,26 @@ class GF5BP(Dataset, ABC):
 		target_transforms: torchvision transforms to apply on masks
 		color_masks: selects if masks should be index masks (False) or color masks (True)
 	'''
-	def __init__(self, root, patch_shape = (224, 224), transforms=None, target_transforms=None, color_masks=False):
+	def __init__(self, root, patch_shape = (224, 224), transforms=None, target_transforms=None, color_masks=False, load_context = False):
 		self.idir = os.path.join(root, 'Image__8bit_NirRGB')
 		self.idxmask_dir = os.path.join(root, 'Annotation__index')
 		self.clrmask_dir = os.path.join(root, 'Annotation__color')
 		self.color_masks = color_masks
 		self.transforms = transforms
+		self.load_context = load_context
 		self.target_transforms = target_transforms
 		self.files = [os.path.join(self.idir,item) for item in os.listdir(path=self.idir)]
-		self.patch_shape = patch_shape
+		self.patch_shape = patch_shape		
 		self.last_image = None
 		self.last_target = None
-		self.last_image_idx = -1
+		self.last_image_idx = -1		
 		# height, width
 		self.image_shape = (6908, 7300)
 		# rows, cols
 		self.tiles_in_img_shape = (self.image_shape[0] // patch_shape[0], self.image_shape[1] // patch_shape[1])
 		self.tiles_per_img = self.tiles_in_img_shape[0] * self.tiles_in_img_shape[1]
-
 		self.class_weights = None
+		self.resize = v2.Resize(224)
 	
 	def __len__(self):
 		return len(self.files) * self.tiles_per_img
@@ -95,12 +96,18 @@ class GF5BP(Dataset, ABC):
 		tile_px_pos = (tile_pos[0] * self.patch_shape[0], tile_pos[1] * self.patch_shape[1])
 		tif_img = v2.functional.crop(self.last_image, tile_px_pos[0], tile_px_pos[1], self.patch_shape[0], self.patch_shape[1])
 		mask_img = v2.functional.crop(self.last_target, tile_px_pos[0], tile_px_pos[1], self.patch_shape[0], self.patch_shape[1])
+		if self.load_context:
+			tly = tile_px_pos[0]-self.patch_shape[0]
+			tlx = tile_px_pos[1]-self.patch_shape[1]
+			h = w = self.patch_shape[0]*3
+			context = v2.functional.crop(self.last_image, tly, tlx, h, w)
 		# mask should be transofrmed geometrically too!
 		if self.transforms:
 			tif_img = self.transforms(tif_img)
 		if self.target_transforms:
 			mask_img = self.target_transforms(mask_img)
-
+		if self.load_context:
+			return (tif_img, mask_img, self.resize(context))
 		return (tif_img, mask_img)	
 	
 	def __get_color_mask_path(self, base_path):
