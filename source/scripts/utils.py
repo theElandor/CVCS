@@ -202,14 +202,17 @@ def load_device(config):
     print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
     return device
 
-def load_checkpoint(config, net):
+def load_checkpoint(config, net=None):
     if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
         checkpoint = torch.load(config['load_checkpoint'])
-        net.load_state_dict(checkpoint['model_state_dict'])                
+        if net:
+            net.load_state_dict(checkpoint['model_state_dict'])                
         TL = checkpoint['training_loss_values']
         VL = checkpoint['validation_loss_values']        
+        mIoU = checkpoint['macro_precision']
+        wIoU = checkpoint['weighted_precision']
         print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)        
-        print(f"mIoU: {checkpoint['macro_precision']}")
-        print(f"wIoU: {checkpoint['weighted_precision']}")        
-        return TL, VL
+        print(f"mIoU: {mIoU}")
+        print(f"wIoU: {wIoU}")
+        return TL, VL, mIoU, wIoU

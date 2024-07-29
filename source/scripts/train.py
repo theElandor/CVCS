@@ -82,7 +82,7 @@ else:
         validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=config['batch_size'])
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
         print("Running validation...", flush=True)
-        validation_loss_values += validation_loss(net, validation_loader, crit, device, show_progress=config['batch_size'])
+        validation_loss_values += validation_loss(net, validation_loader, crit, device, show_progress=True)
         # 3) Append results to list
 
         if (epoch+1) % config['precision_evaluation_freq'] == 0:
