@@ -63,9 +63,12 @@ else:
         if config['verbose']:
             pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch+1}')
         net.train()    
-        for batch_index, (image, mask) in enumerate(train_loader):
+        for batch_index, (image, mask, context) in enumerate(train_loader):            
             image, mask = image.to(device), mask.to(device)
-            mask_pred = net(image.type(torch.float32)).to(device)
+            # avoid loading context to GPU if not needed
+            if net.requires_context:
+                context = context.to(device)            
+            mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.squeeze().type(torch.long))
             training_loss_values.append(loss.item())
             opt.zero_grad()
@@ -86,7 +89,7 @@ else:
 
         if (epoch+1) % config['precision_evaluation_freq'] == 0:
             print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
-            precision_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1)
+            precision_loader = utils.load_loader(validation_dataset, config, False, batch_size=1)
             macro, weighted = utils.eval_model(net, precision_loader, device, show_progress=config['verbose'])
             print(f"mIou: {macro}")
             print(f"weighted mIoU: {weighted}", flush=True)

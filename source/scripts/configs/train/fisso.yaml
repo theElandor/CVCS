@@ -1,28 +1,28 @@
-train: C:\Users\eros\CVCS\dataset\Gaofen_224x224\Train
-validation: C:\Users\eros\CVCS\dataset\Gaofen_224x224\Validation
-test: C:\Users\eros\CVCS\dataset\Gaofen_224x224\Test
-mode: static
+train: D:\Datasets\GID15_test\Train
+validation: D:\Datasets\GID15_test\Validation
+test: D:\Datasets\GID15_test\Test
+mode: runtime
 device: gpu
 # static: specified paths must contain cropped patches
 # dynamic: specified paths must contain original sized images
-checkpoint_directory: D:\weights\small_unet # directory to save checkpoints in
+checkpoint_directory: D:\weights\test # directory to save checkpoints in
 # uncomment load_checkpoint if you want to load a checkpoint
-load_checkpoint: D:\weights\small_unet\checkpoint18
+#load_checkpoint: D:\weights\small_unet\checkpoint18
 epochs: 20 # number of epochs.
 # warning: if you ended at epoch 10 at last checkpoint and you want to train for 10 more epochs,
 # then set this value to 20 (10 + 10)
 
 freq: 1 # checkpoint saving frequency. If set to 2, a checkpoint will be saved every 2 epochs.
 verbose: True # show progress bar during epochs. Keep false if you train on remote server
-batch_size: 4 # this parameter will be overwritten if a checkpoint is loaded
+batch_size: 2 # this parameter will be overwritten if a checkpoint is loaded
 precision_evaluation_freq: 1 # if set to 2, it will evaluate model precision once every 2 epochs
-net: Unet # network to load. 
+net: Fusion # network to load. 
 # Avaliable models:
 # TSwin: Tiny swin transformer backbone (hugging face) + unet decoder with residuals
 # BSwin: Base swin transformer backbone (hugging face) + unet decoder with residuals
 # Unet: Classic unet network (2015 medical segmentation paper)
 opt: ADAM1
-loss: CEL
+loss: DEL
 # DEL: DiceEntropyLoss
 # CEL: CrossEntropyLoss
 # DL: DiceLoss
