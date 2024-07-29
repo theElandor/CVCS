@@ -61,19 +61,11 @@ print(train_indices)
 # }
 data = {partition:[] for partition in "Test Train Validation".split(" ")}
 for partition in ["Test", "Train", "Validation"]:    
-<<<<<<< HEAD
-    with open(os.path.join("test", f"{partition}_{images}.txt")) as f:
-=======
     with open(os.path.join("test", f"{partition.lower()}_{images}.txt")) as f:
->>>>>>> master
         grid = [x.strip() for x in f.readlines()]
         for file in grid:
             data[partition].append((file, get_label(file), get_label_color(file), get_coord(file)))
 
 source_folders = [os.path.join(root, folder) for folder in [images, ann_index, ann_color, coord_files]]
 dest_folders = {partition:[os.path.join(root, partition, folder) for folder in [images, ann_index, ann_color, coord_files]] for partition in ["Validation", "Test", "Train"]}
-<<<<<<< HEAD
-#create_partitions(source_folders, dest_folders, data)
-=======
 create_partitions(source_folders, dest_folders, data)
->>>>>>> master

@@ -183,14 +183,35 @@ def load_dataset(config):
         print("Invalid dataset mode.")
         raise Exception
 
-def load_loaders(train_dataset, validation_dataset, config):
-    if config['mode'] == 'runtime':
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config['batch_size'])
-        validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size = config['batch_size'])
-    elif config['mode'] == 'static':
-        train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, batch_size=config['batch_size'])
-        validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=config['batch_size'])
-    return train_loader, validation_loader
+def custom_shuffle(dataset):
+    tpe = dataset.tiles_per_img
+    images = [_ for _ in range(len(dataset)//tpe)]
+    np.random.shuffle(images)
+    ranges = []
+    for image in images:
+        r = [_ for _ in range(image*tpe, (image+1)*tpe)]
+        np.random.shuffle(r)
+        ranges.append(r)    
+    final = sum(ranges, [])
+    return final
+
+def load_loader(dataset, config, shuffle):
+    bs = config['batch_size']
+    m = config['mode']
+    assert dataset.tiles_per_img % bs == 0, "Tiles per image is not divisible by batch size, unexpected behaviour of DataLoader."    
+    if m == 'runtime':
+        if shuffle:
+            sampler=custom_shuffle(dataset)
+            print(sampler)
+        else:
+            sampler=None
+        loader = loader = torch.utils.data.DataLoader(dataset, batch_size=bs, sampler=sampler)
+    elif m == 'static':        
+        loader = torch.utils.data.DataLoader(dataset, shuffle=shuffle, batch_size=bs)
+    else:
+        print("Selected mode is not valid!")
+        Exception    
+    return loader
 
 
 def load_device(config):
