@@ -21,9 +21,11 @@ def eval_model(net, validation_loader, device, show_progress = False):
         pbar = tqdm(total=len(validation_loader.dataset))
     with torch.no_grad():
         net.eval()
-        for x,y in validation_loader:
+        for x,y, context in validation_loader:
             x, y = x.to(device), y.to(device)
-            y_pred = net(x.type(torch.float32))            
+            if net.requires_context:
+                context = context.to(device)
+            y_pred = net(x.type(torch.float32), context.type(torch.float32))
             y_pred = y_pred.squeeze().cpu()
             _,pred_mask = torch.max(y_pred, dim=0)
 
@@ -46,9 +48,11 @@ def validation_loss(net, loader, crit, device, show_progress = False):
     if show_progress:
         pbar = tqdm(total=len(loader))
     with torch.no_grad():
-        for image, mask in loader:
-            image, mask = image.to(device), mask.to(device)        
-            mask_pred = net(image.type(torch.float32)).to(device)
+        for image, mask, context in loader:
+            image, mask = image.to(device), mask.to(device)
+            if net.requires_context:
+                context = context.to(device)
+            mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.squeeze().type(torch.long))
             loss_values.append(loss.item())
             if show_progress:
@@ -120,8 +124,11 @@ def load_network(config, device):
         return nets.Swin(128,224,25, device).to(device)
     elif netname == 'Unet':
         return nets.Urnet(25).to(device)
+    elif netname == 'Fusion':
+        return nets.Fusion(25, device).to(device)
     else:
-        raise ValueError("Invalid network name.")
+        print("Invalid network name.")
+        raise Exception
     
 
 def load_gaofen(train, validation, test):    
@@ -192,17 +199,19 @@ def custom_shuffle(dataset):
         r = [_ for _ in range(image*tpe, (image+1)*tpe)]
         np.random.shuffle(r)
         ranges.append(r)    
-    final = sum(ranges, [])
+    final = sum(ranges, [])    
     return final
 
-def load_loader(dataset, config, shuffle):
-    bs = config['batch_size']
+def load_loader(dataset, config, shuffle, batch_size=-1):
+    if batch_size != -1:
+        bs = batch_size
+    else:        
+        bs = config['batch_size']
     m = config['mode']
     assert dataset.tiles_per_img % bs == 0, "Tiles per image is not divisible by batch size, unexpected behaviour of DataLoader."    
     if m == 'runtime':
         if shuffle:
-            sampler=custom_shuffle(dataset)
-            print(sampler)
+            sampler=custom_shuffle(dataset)           
         else:
             sampler=None
         loader = loader = torch.utils.data.DataLoader(dataset, batch_size=bs, sampler=sampler)
@@ -223,14 +232,17 @@ def load_device(config):
     print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
     return device
 
-def load_checkpoint(config, net):
+def load_checkpoint(config, net=None):
     if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
         checkpoint = torch.load(config['load_checkpoint'])
-        net.load_state_dict(checkpoint['model_state_dict'])                
+        if net:
+            net.load_state_dict(checkpoint['model_state_dict'])                
         TL = checkpoint['training_loss_values']
         VL = checkpoint['validation_loss_values']        
+        mIoU = checkpoint['macro_precision']
+        wIoU = checkpoint['weighted_precision']
         print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)        
-        print(f"mIoU: {checkpoint['macro_precision']}")
-        print(f"wIoU: {checkpoint['weighted_precision']}")        
-        return TL, VL
+        print(f"mIoU: {mIoU}")
+        print(f"wIoU: {wIoU}")
+        return TL, VL, mIoU, wIoU

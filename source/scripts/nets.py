@@ -1,10 +1,10 @@
-from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, VisionTransformerEncoder
+from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, conv3x3
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel, AutoImageProcessor
-from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, VisionTransformerEncoder
+from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer
 import torch
 import torch.nn as nn
 import torchvision.transforms.functional as functional
@@ -15,6 +15,7 @@ class Urnet(nn.Module):
 	def __init__(self, num_classes):
 		super(Urnet, self).__init__()
 		self.residuals = []
+		self.requires_context = False
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -67,7 +68,7 @@ class Urnet(nn.Module):
 			# Model output is 6xHxW, so we have a prob. distribution
 			# for each pixel (each pixel has a logit for each of the 6 classes.)
 		)
-	def forward(self, x: torch.Tensor):
+	def forward(self, x: torch.Tensor, context=None):
 		self.x1 = self.encode1(x)
 		self.x2 = self.encode2(self.x1)
 		self.x3 = self.encode3(self.x2)
@@ -92,61 +93,64 @@ class Urnet(nn.Module):
 		return segmap
 
 class Swin(nn.Module): # swinT + unet head
-    def __init__(self, embed_dim, size, num_classes, device):
-        super(Swin, self).__init__()
-        self.c = embed_dim
-        self.h = size
-        self.w = size
-        self.num_classes = num_classes        
-        self.device = device
-        if embed_dim == 96:             
-            model_name = "microsoft/swin-tiny-patch4-window7-224"
-        elif embed_dim == 128:
-            model_name = "microsoft/swin-base-patch4-window7-224"
-        self.swin = AutoModel.from_pretrained(model_name)
-        self.image_processor = AutoImageProcessor.from_pretrained(model_name)
-        self.upscale1 = UnetUpscaleLayer(2, self.c*8)
-        self.decode_forward1 = UnetForwardDecodeLayer(self.c*8,self.c*4, padding=1)
-        self.upscale2 = UnetUpscaleLayer(2, self.c*4)    
-        self.decode_forward2 = UnetForwardDecodeLayer(self.c*4, self.c*2, padding=1)
-        self.upscale3 = UnetUpscaleLayer(2,self.c*2)
-        self.decode_forward3 = UnetForwardDecodeLayer(self.c*2, self.c, padding=1)
-        self.upscale4 = UnetUpscaleLayer(2,self.c)
-        self.decode_forward4 = nn.Sequential(
-            UnetForwardDecodeLayer(self.c//2,self.c//2,padding=1),
-            UnetUpscaleLayer(2, self.c//2),
-            nn.Conv2d(self.c//4, num_classes, kernel_size=1) # final conv 1x1
-            # Model output is 6xHxW, so we have a prob. distribution
-            # for each pixel (each pixel has a logit for each of the 6 classes.)
-        )
-    def forward(self, x):
-        inputs = self.image_processor(x, return_tensors="pt")
-        self.r1, self.r2,
-        self.r3, _, self.r4 = self.swin(inputs['pixel_values'].to(self.device),return_dict=True, output_hidden_states=True)['hidden_states']
-        s = int(math.sqrt(self.r4.shape[1]))
-        self.r4 = self.r4.swapaxes(1,2).reshape(-1,self.c*8,s,s)
-        self.r3 = self.r3.swapaxes(1,2).reshape(-1,self.c*4,s*2,s*2)
-        self.r2 = self.r2.swapaxes(1,2).reshape(-1,self.c*2,s*4,s*4)
-        self.r1 = self.r1.swapaxes(1,2).reshape(-1,self.c,s*8,s*8)
-        
-        x = self.upscale1(self.r4)
-        c1 = torch.concat((x, self.r3), 1)
-        x = self.decode_forward1(c1)
-        x = self.upscale2(x)
-        c2 = torch.concat((x, self.r2), 1)
-        x = self.decode_forward2(c2)        
-        x = self.upscale3(x)
-        c3 = torch.concat((x, self.r1), 1)        
-        x = self.decode_forward3(c3)
-        x = self.upscale4(x)
-        x = self.decode_forward4(x)
-        return x
+	def __init__(self, embed_dim, size, num_classes, device):
+		super(Swin, self).__init__()	
+		self.requires_context = False
+		self.c = embed_dim
+		self.h = size
+		self.w = size		
+		self.num_classes = num_classes        
+		self.device = device
+		if embed_dim == 96:             
+			model_name = "microsoft/swin-tiny-patch4-window7-224"
+		elif embed_dim == 128:
+			model_name = "microsoft/swin-base-patch4-window7-224"
+		self.swin = AutoModel.from_pretrained(model_name)
+		self.image_processor = AutoImageProcessor.from_pretrained(model_name)
+		self.upscale1 = UnetUpscaleLayer(2, self.c*8)
+		self.decode_forward1 = UnetForwardDecodeLayer(self.c*8,self.c*4, padding=1)
+		self.upscale2 = UnetUpscaleLayer(2, self.c*4)    
+		self.decode_forward2 = UnetForwardDecodeLayer(self.c*4, self.c*2, padding=1)
+		self.upscale3 = UnetUpscaleLayer(2,self.c*2)
+		self.decode_forward3 = UnetForwardDecodeLayer(self.c*2, self.c, padding=1)
+		self.upscale4 = UnetUpscaleLayer(2,self.c)
+		self.decode_forward4 = nn.Sequential(
+			UnetForwardDecodeLayer(self.c//2,self.c//2,padding=1),
+			UnetUpscaleLayer(2, self.c//2),
+			nn.Conv2d(self.c//4, num_classes, kernel_size=1) # final conv 1x1
+			# Model output is 6xHxW, so we have a prob. distribution
+			# for each pixel (each pixel has a logit for each of the 6 classes.)
+		)
+	def forward(self, x: torch.Tensor, context=None):
+		inputs = self.image_processor(x, return_tensors="pt")
+		self.r1, self.r2,
+		self.r3, _, self.r4 = self.swin(inputs['pixel_values'].to(self.device),return_dict=True, output_hidden_states=True)['hidden_states']
+		s = int(math.sqrt(self.r4.shape[1]))
+		self.r4 = self.r4.swapaxes(1,2).reshape(-1,self.c*8,s,s)
+		self.r3 = self.r3.swapaxes(1,2).reshape(-1,self.c*4,s*2,s*2)
+		self.r2 = self.r2.swapaxes(1,2).reshape(-1,self.c*2,s*4,s*4)
+		self.r1 = self.r1.swapaxes(1,2).reshape(-1,self.c,s*8,s*8)
+		
+		x = self.upscale1(self.r4)
+		c1 = torch.concat((x, self.r3), 1)
+		x = self.decode_forward1(c1)
+		x = self.upscale2(x)
+		c2 = torch.concat((x, self.r2), 1)
+		x = self.decode_forward2(c2)        
+		x = self.upscale3(x)
+		c3 = torch.concat((x, self.r1), 1)        
+		x = self.decode_forward3(c3)
+		x = self.upscale4(x)
+		x = self.decode_forward4(x)
+		return x
 
 class Fusion(nn.Module): # STILL TESTING
-	def __init__(self, num_classes):
+	def __init__(self, num_classes, device):
 		super(Fusion, self).__init__()
+		self.requires_context = True
+		self.device = device
 		self.residuals = []
-		model_name = "microsoft/swin-tiny-patch4-window7-224"
+		model_name = "microsoft/swin-base-patch4-window7-224"
 		self.swin = AutoModel.from_pretrained(model_name)
 		self.image_processor = AutoImageProcessor.from_pretrained(model_name)		
     	# encoding part of the Unet vanilla architecture
@@ -212,7 +216,7 @@ class Fusion(nn.Module): # STILL TESTING
 			# Model output is 6xHxW, so we have a prob. distribution
 			# for each pixel (each pixel has a logit for each of the 6 classes.)
 		)
-	def forward(self, x: torch.Tensor):
+	def forward(self, x, context):
 		self.x1 = self.encode1(x)
 		self.x2 = self.encode2(self.x1)
 		self.x3 = self.encode3(self.x2)
@@ -221,8 +225,8 @@ class Fusion(nn.Module): # STILL TESTING
 		self.x6 = self.encode6(self.x5)
 		self.spatial_features = self.encode7(self.x6)
 
-		inputs = self.image_processor(x, return_tensors="pt")
-		r1, r2, r3, _, r4 = self.swin(inputs['pixel_values'],return_dict=True, output_hidden_states=True)['hidden_states']
+		inputs = self.image_processor(context, return_tensors="pt")
+		r1, r2, r3, _, r4 = self.swin(inputs['pixel_values'].to(self.device),return_dict=True, output_hidden_states=True)['hidden_states']
 		
 		_,c,h,w = self.spatial_features.shape
 		r4 = r4.permute(0,2,1).reshape(-1, c,h,w)

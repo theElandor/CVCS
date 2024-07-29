@@ -21,7 +21,7 @@ try:
 except:
     print("Error in loading network.")
     exit(0)
-TL, VL = utils.load_checkpoint(config, net)
+TL, VL, mIoU, wIoU = utils.load_checkpoint(config, net)
 dataset = utils.load_dataset(config)
 
 if 'range' in config.keys():

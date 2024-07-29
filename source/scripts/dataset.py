@@ -53,13 +53,12 @@ class GF5BP(Dataset, ABC):
 		target_transforms: torchvision transforms to apply on masks
 		color_masks: selects if masks should be index masks (False) or color masks (True)
 	'''
-	def __init__(self, root, patch_shape = (224, 224), transforms=None, target_transforms=None, color_masks=False, load_context = False):
+	def __init__(self, root, patch_shape = (224, 224), transforms=None, target_transforms=None, color_masks=False):
 		self.idir = os.path.join(root, 'Image__8bit_NirRGB')
 		self.idxmask_dir = os.path.join(root, 'Annotation__index')
 		self.clrmask_dir = os.path.join(root, 'Annotation__color')
 		self.color_masks = color_masks
-		self.transforms = transforms
-		self.load_context = load_context
+		self.transforms = transforms		
 		self.target_transforms = target_transforms
 		self.files = [os.path.join(self.idir,item) for item in os.listdir(path=self.idir)]
 		self.patch_shape = patch_shape		
@@ -96,19 +95,19 @@ class GF5BP(Dataset, ABC):
 		tile_px_pos = (tile_pos[0] * self.patch_shape[0], tile_pos[1] * self.patch_shape[1])
 		tif_img = v2.functional.crop(self.last_image, tile_px_pos[0], tile_px_pos[1], self.patch_shape[0], self.patch_shape[1])
 		mask_img = v2.functional.crop(self.last_target, tile_px_pos[0], tile_px_pos[1], self.patch_shape[0], self.patch_shape[1])
-		if self.load_context:
-			tly = tile_px_pos[0]-self.patch_shape[0]
-			tlx = tile_px_pos[1]-self.patch_shape[1]
-			h = w = self.patch_shape[0]*3
-			context = v2.functional.crop(self.last_image, tly, tlx, h, w)
+		#crop context around patch (automatic padding)
+		tly = tile_px_pos[0]-self.patch_shape[0]
+		tlx = tile_px_pos[1]-self.patch_shape[1]
+		h = w = self.patch_shape[0]*3
+		context = v2.functional.crop(self.last_image, tly, tlx, h, w)
 		# mask should be transofrmed geometrically too!
 		if self.transforms:
 			tif_img = self.transforms(tif_img)
+			context = self.transforms(context)			
 		if self.target_transforms:
 			mask_img = self.target_transforms(mask_img)
-		if self.load_context:
-			return (tif_img, mask_img, self.resize(context))
-		return (tif_img, mask_img)	
+		context = self.resize(context)
+		return (tif_img, mask_img, context)
 	
 	def __get_color_mask_path(self, base_path):
 		return os.path.join(self.clrmask_dir, Path(base_path).stem + '_24label.tif')
