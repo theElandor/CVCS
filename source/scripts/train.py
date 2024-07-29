@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
-from utils import validation_loss, save_model, eval_model, load_network, load_dataset, print_sizes, load_optimizer, load_loss, load_loaders, load_device
+import utils
 import yaml
 import sys
 inFile = sys.argv[1]
@@ -12,25 +12,24 @@ with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 print("LOADED CONFIGURATIONS:")
 print(config)
-train_dataset, validation_dataset, test_dataset = load_dataset(config)
-device = load_device(config)
+train_dataset, validation_dataset, test_dataset = utils.load_dataset(config)
+device = utils.load_device(config)
 
 try:
-    net = load_network(config, device)
+    net = utils.load_network(config, device)
 except:
     print("Error in loading network.")
     exit(0)
 
-print_sizes(net, train_dataset, validation_dataset, test_dataset)
-train_loader, validation_loader = load_loaders(train_dataset, validation_dataset, config)
+utils.print_sizes(net, train_dataset, validation_dataset, test_dataset)
 
 try:
-    crit = load_loss(config, device, train_dataset)
+    crit = utils.load_loss(config, device, train_dataset)
 except:
     print("Error in loading loss module.")
     exit(0)
 try:
-    opt = load_optimizer(config, net)
+    opt = utils.load_optimizer(config, net)
 except:
     print("Error in loading optimizer")
     exit(0)
@@ -60,8 +59,10 @@ if not Path(config['checkpoint_directory']).is_dir():
     print("Please provide a valid directory to save checkpoints in.")
 else:    
     for epoch in range(last_epoch, config['epochs']):        
-        print("Started epoch {}".format(epoch+1), flush=True)            
-        if config['verbose']:            
+        print("Started epoch {}".format(epoch+1), flush=True)
+        #initialize train_loader at each epoch to have a different shuffle every time
+        train_loader = utils.load_loader(train_dataset, config, True)
+        if config['verbose']:
             pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch+1}')
         net.train()    
         for batch_index, (image, mask) in enumerate(train_loader):
@@ -79,23 +80,23 @@ else:
             pbar.close()
         # run evaluation!
         # 1) Re-initialize data loaders
-        validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=config['batch_size'])
+        validation_loader = utils.load_loader(validation_dataset, config, False)
         # 2) Call evaluation Loop (run model for 1 epoch on validation set)
         print("Running validation...", flush=True)
-        validation_loss_values += validation_loss(net, validation_loader, crit, device, show_progress=config['batch_size'])
+        validation_loss_values += utils.validation_loss(net, validation_loader, crit, device, show_progress=config['verbose'])
         # 3) Append results to list
 
         if (epoch+1) % config['precision_evaluation_freq'] == 0:
             print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
             precision_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=1)
-            macro, weighted = eval_model(net, precision_loader, device, show_progress=config['val_progress'])
+            macro, weighted = utils.eval_model(net, precision_loader, device, show_progress=config['verbose'])
             print(f"mIou: {macro}")
             print(f"weighted mIoU: {weighted}", flush=True)
             macro_precision.append(macro)
             weighted_precision.append(weighted)
 
         if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs            
-            save_model(epoch, net, opt, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
+            utils.save_model(epoch, net, opt, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
                        config['batch_size'], 
                        config['checkpoint_directory'], 
                        config['opt']

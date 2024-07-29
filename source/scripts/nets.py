@@ -146,7 +146,7 @@ class Fusion(nn.Module): # STILL TESTING
 	def __init__(self, num_classes):
 		super(Fusion, self).__init__()
 		self.residuals = []
-		model_name = "microsoft/swin-base-patch4-window7-224"
+		model_name = "microsoft/swin-tiny-patch4-window7-224"
 		self.swin = AutoModel.from_pretrained(model_name)
 		self.image_processor = AutoImageProcessor.from_pretrained(model_name)		
     	# encoding part of the Unet vanilla architecture
