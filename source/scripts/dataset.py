@@ -8,7 +8,6 @@ from torchvision.transforms.functional import center_crop
 from pathlib import Path
 import torch
 import converters
-from abc import ABC, abstractmethod
 import random
 
 class PostDamDataset(Dataset):

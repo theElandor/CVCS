@@ -6,7 +6,7 @@ import os
 from random import random
 import torchvision.transforms as T
 import nets
-from dataset import GID15, Cropped5BP
+from dataset import GID15
 import numpy as np
 import torch.nn as nn
 import loss

@@ -64,8 +64,6 @@ else:
             pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch+1}')
         net.train()
         for batch_index, (image, mask, context) in enumerate(train_loader):
-            if batch_index == 2:
-                break
             image, mask = image.to(device), mask.to(device)
             # avoid loading context to GPU if not needed
             if net.requires_context:
