@@ -108,9 +108,6 @@ class GID15(Dataset):
 		c_tly = tly-self.patch_shape[0]
 		c_tlx = tlx-self.patch_shape[1]
 		h = w = self.patch_shape[0]*3
-		if self.random_shift:
-			c_tly += offset_y
-			c_tlx += offset_x
 		context = v2.functional.crop(self.last_image, c_tly, c_tlx, h, w)
 		# mask should be transofrmed geometrically too!
 		if self.transforms:

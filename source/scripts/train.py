@@ -55,7 +55,7 @@ else:
 
 if not Path(config['checkpoint_directory']).is_dir():
     print("Please provide a valid directory to save checkpoints in.")
-else:    
+else:
     for epoch in range(last_epoch, config['epochs']):        
         print("Started epoch {}".format(epoch+1), flush=True)
         #initialize train_loader at each epoch to have a different shuffle every time

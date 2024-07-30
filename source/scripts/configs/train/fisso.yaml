@@ -2,7 +2,7 @@ train: D:\Datasets\GID15_test\Train
 validation: D:\Datasets\GID15_test\Validation
 test: D:\Datasets\GID15_test\Test
 device: gpu
-checkpoint_directory: D:\weights\test # directory to save checkpoints in
+checkpoint_directory: D:\weights\test_CEL # directory to save checkpoints in
 # uncomment load_checkpoint if you want to load a checkpoint
 #load_checkpoint: D:\weights\small_unet\checkpoint18
 epochs: 20 # number of epochs.
@@ -19,7 +19,7 @@ net: Unet # network to load.
 # BSwin: Base swin transformer backbone (hugging face) + unet decoder with residuals
 # Unet: Classic unet network (2015 medical segmentation paper)
 opt: ADAM1
-loss: DEL
+loss: CEL
 # DEL: DiceEntropyLoss
 # CEL: CrossEntropyLoss
 # DL: DiceLoss
