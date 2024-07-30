@@ -44,7 +44,7 @@ class PostdamConverter: # WARNING: POSTDAM CONVERTER
 		class_label_mask = class_label_mask.reshape(H,W)		
 		return class_label_mask
 
-class GaofenConverter:
+class GID25:
 	def __init__(self):
 		self.color_to_label={
 			(0,   0,    0)  : 0, #unlabeled

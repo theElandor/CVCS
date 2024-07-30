@@ -6,7 +6,7 @@ import os
 from random import random
 import torchvision.transforms as T
 import nets
-from dataset import GF5BP, Cropped5BP
+from dataset import GID15, Cropped5BP
 import numpy as np
 import torch.nn as nn
 import loss
@@ -118,29 +118,24 @@ def inference(net, dataset, indexes, device, converter, mask_only=False):
 
 def load_network(config, device):
     netname = config['net']
+    classes = config['num_classes']
     if netname == 'TSwin':
-        return nets.Swin(96,224,25, device).to(device)
+        return nets.Swin(96,224,classes+1, device).to(device)
     elif netname == 'BSwin':
-        return nets.Swin(128,224,25, device).to(device)
+        return nets.Swin(128,224,classes+1, device).to(device)
     elif netname == 'Unet':
-        return nets.Urnet(25).to(device)
+        return nets.Urnet(classes+1).to(device)
     elif netname == 'Fusion':
-        return nets.Fusion(25, device).to(device)
+        return nets.Fusion(classes+1, device).to(device)
     else:
         print("Invalid network name.")
         raise Exception
     
 
 def load_gaofen(train, validation, test):    
-    train_dataset = GF5BP(train)
-    validation_dataset = GF5BP(validation)
-    test_dataset = GF5BP(test)
-    return train_dataset, validation_dataset, test_dataset
-
-def load_gaofen_static(train, validation, test):
-    train_dataset = Cropped5BP(train)
-    validation_dataset = Cropped5BP(validation)
-    test_dataset = Cropped5BP(test)
+    train_dataset = GID15(train, random_shift=True)
+    validation_dataset = GID15(validation)
+    test_dataset = GID15(test)
     return train_dataset, validation_dataset, test_dataset
 
 def print_sizes(net, train_dataset, validation_dataset, test_dataset):
@@ -161,11 +156,12 @@ def load_optimizer(config, net):
     
 
 def load_loss(config, device, dataset=None):
+    classes = config['num_classes']
     name = config['loss']
     if name == "CEL":
         return nn.CrossEntropyLoss()
     elif name == "DEL":        
-        return loss.DiceEntropyLoss(device)
+        return loss.DiceEntropyLoss(device, classes)
     elif name == "wCEL":
         print("Computing class weights, it might take several minutes...")
         weights = dataset.get_class_weights().to(device)
@@ -174,21 +170,7 @@ def load_loss(config, device, dataset=None):
         raise Exception
     
 def load_dataset(config):
-    m = config['mode']
-    if 'dataset' in config.keys():
-        print("Only one dataset specified. You are running in inference mode.")
-        if m == 'static':
-            return Cropped5BP(config['dataset'], inference=True)
-        else:
-            print("This mode is still not supported in inference mode.")
-            raise Exception
-    if  m == 'runtime':
-        return load_gaofen(config['train'], config['validation'], config['test'])        
-    elif m == 'static':
-        return load_gaofen_static(config['train'], config['validation'], config['test'])
-    else:
-        print("Invalid dataset mode.")
-        raise Exception
+    return load_gaofen(config['train'], config['validation'], config['test'])
 
 def custom_shuffle(dataset):
     tpe = dataset.tiles_per_img
@@ -206,20 +188,13 @@ def load_loader(dataset, config, shuffle, batch_size=-1):
     if batch_size != -1:
         bs = batch_size
     else:        
-        bs = config['batch_size']
-    m = config['mode']
+        bs = config['batch_size']    
     assert dataset.tiles_per_img % bs == 0, "Tiles per image is not divisible by batch size, unexpected behaviour of DataLoader."    
-    if m == 'runtime':
-        if shuffle:
-            sampler=custom_shuffle(dataset)           
-        else:
-            sampler=None
-        loader = loader = torch.utils.data.DataLoader(dataset, batch_size=bs, sampler=sampler)
-    elif m == 'static':        
-        loader = torch.utils.data.DataLoader(dataset, shuffle=shuffle, batch_size=bs)
+    if shuffle:
+        sampler=custom_shuffle(dataset)
     else:
-        print("Selected mode is not valid!")
-        Exception    
+        sampler=None
+    loader = loader = torch.utils.data.DataLoader(dataset, batch_size=bs, sampler=sampler)
     return loader
 
 
