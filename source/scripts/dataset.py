@@ -9,36 +9,7 @@ from pathlib import Path
 import torch
 import converters
 import random
-
-class PostDamDataset(Dataset):
-	def __init__(self, img_dir, masks_dir, extension,transforms=None, crop=None, augment_mask=False):
-		self.idir = img_dir
-		self.mdir = masks_dir		
-		self.transforms = transforms		
-		self.extension = extension
-		self.items = os.listdir(self.idir)
-		self.files = [item for item in self.items if os.path.isfile(os.path.join(self.idir, item))]
-		self.c = converters.PostdamConverter()
-		self.crop = crop
-		self.augment_mask = augment_mask
-	def __len__(self):
-		return len(self.files)
-	def __getitem__(self, idx):
-		img_path = os.path.join(self.idir, "Image_{}{}".format(idx, self.extension))
-		mask_path = os.path.join(self.mdir, "Label_{}{}".format(idx, self.extension))
-		tif_img = Image.open(img_path)
-		tif_mask = Image.open(mask_path)
-		final_mask = self.c.convert(ToTensor()(tif_mask))
-		final_image = ToTensor()(tif_img)
-		if self.transforms:  # if transforms are provided, apply them
-			if self.augment_mask:
-				final_image, final_mask = self.transforms(final_image, final_mask)
-			else:
-				final_image = self.transforms(final_image)		
-		if self.crop:
-			final_image = center_crop(final_image, self.crop)
-			final_mask = center_crop(final_mask, self.crop)
-		return (final_image, final_mask, idx)
+import matplotlib.pyplot as plt
 
 class GID15(Dataset):
 	'''
@@ -142,3 +113,126 @@ class GID15(Dataset):
 				self.class_weights = torch.sum(self.class_weights) / self.class_weights # we need the inverse: low probability should get big weight
 
 		return self.class_weights
+	
+
+class IterableChunk(torch.utils.data.IterableDataset):
+
+    def __init__(self, chunk, images, indexdir, maskdir, random_shift=False):
+        super(IterableChunk).__init__()
+        self.indexdir = indexdir
+        self.maskdir = maskdir
+        self.p = 224
+        self.tpe = 960 # tiles per image
+        self.random_shift = random_shift
+        self.image_shape = (6800, 7200)
+        self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
+        self.to_load = [images[idx] for idx in chunk]
+        self.chunk_size = len(chunk)
+        self.chunk_crops = [_ for _ in range(self.tpe*self.chunk_size)] # [0...1919] if chunk size is 2
+        random.shuffle(self.chunk_crops)
+        self.images, self.index_masks, self.color_masks = self.load_images(self.to_load)
+        self.resize = v2.Resize(self.p)
+        # shuffle chunk_crops and crop the coresponding image
+        # still need to shuffle chunk_crops
+        self.patches = [] # list of tuples (image_crop, index_crop, mask_crop, context_crop)
+        for x in self.chunk_crops:            
+            target_image = x // self.tpe
+            tile_idx = x % self.tpe
+            tile_pos = (tile_idx // self.tiles_in_img_shape[1], tile_idx % self.tiles_in_img_shape[1])
+            tly, tlx = (tile_pos[0] * self.p, tile_pos[1] * self.p)
+
+            # apply random shift
+            if self.random_shift:
+                offset_y = random.randint(-20,20)
+                offset_x = random.randint(-20,20)
+                tly += offset_y
+                tlx += offset_x            
+            
+            # get index mask name and color mask name
+
+            # crop image, index mask and color mask
+            patch = v2.functional.crop(self.images[target_image], tly, tlx, self.p, self.p)
+            index_mask = v2.functional.crop(self.index_masks[target_image], tly, tlx, self.p, self.p)
+            color_mask = v2.functional.crop(self.color_masks[target_image], tly, tlx, self.p, self.p)
+
+            #locate, crop and resize context
+            c_tly = tly-self.p
+            c_tlx = tlx-self.p
+            h = w = self.p*3
+            context = self.resize(v2.functional.crop(self.images[target_image], c_tly, c_tlx, h, w))            
+            # append everything to list
+            self.patches.append((patch, index_mask, color_mask, context))
+            
+    def load_images(self, names):
+        """
+        Parameters:
+            names (list): list of full paths of images to load
+        Returns:
+            images (list): List of pre-loaded images
+            index_masks (list): List of pre-loaded index masks
+            color_masks (list): List of pre-loaded color masks
+        """
+        print("Loading chunk:")
+        for name in names:
+            print(name)
+        images = [tv_tensors.Image(Image.open(name)) for name in names]
+        index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir,Path(name).stem + "_15label.png"))) for name in names]
+        color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir,Path(name).stem + "_15label.tif"))) for name in names]
+        return images, index_masks, color_masks
+
+    def __iter__(self):
+        return iter(self.patches)
+    
+    def show_patch(self, index):
+        plt.imshow(self.patches[index].permute(1,2,0))
+        plt.show()
+
+    
+class Loader():
+	def __init__(self, root, chunk_size=2, random_shift=False):
+		self.root = root
+		self.random_shift = random_shift
+		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
+		self.indexdir = os.path.join(root, "Annotation__index")
+		self.maskdir = os.path.join(root, "Annotation__color")
+		self.images = sorted([os.path.join(self.imdir, image) for image in os.listdir(self.imdir)])
+		self.idxs = [_ for _ in range(len(self.images))]
+		self.chunk_size = chunk_size
+		self.chunks = None
+		assert len(self.images) % self.chunk_size == 0, "Number of images not divisible by chunk size."        
+		self.__generate_chunks()
+
+	def shuffle(self):
+		random.shuffle(self.idxs)
+		self.__generate_chunks()
+
+	def get_iterable_chunk(self,idx):
+		"""
+		Parameters:
+			idx (int): index of chunk that you need to pre-load in memory.
+		Returns:
+			(IterableChunk): iterator on the specified chunk with shuffled patches.
+		"""
+		return IterableChunk(self.chunks[idx], self.images, self.indexdir, self.maskdir, self.random_shift)
+
+	def get_chunk(self,idx):
+		"""
+		Parameters:
+			idx (int): index of chunk
+		Returns:
+			(list): list of names of images belonging to specified chunk            
+		"""
+		return [self.images[i] for i in self.chunks[idx]]
+
+	def print_chunk(self, idx):
+		"""
+		Function that prints names of images belonging to chunk
+		"""
+		for im in self.get_chunk(idx):
+			print(im)
+
+	def __generate_chunks(self):
+		self.chunks = [[self.idxs[i+(self.chunk_size*offset)] for i in range(self.chunk_size) ] for offset in range (len(self.idxs)//self.chunk_size)]        
+
+	def __len__(self):        
+		return len(self.chunks)

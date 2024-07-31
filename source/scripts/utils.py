@@ -11,66 +11,69 @@ import numpy as np
 import torch.nn as nn
 import loss
 from PIL import Image
-import converters
 
-def eval_model(net, validation_loader, device, show_progress = False):
+def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False):
     # returns (macro, weighted) IoU
     macro = 0
-    weighted = 0
-    if show_progress:
-        pbar = tqdm(total=len(validation_loader.dataset))
+    weighted = 0    
+    net.eval()
     with torch.no_grad():
-        net.eval()
-        for x,y, context in validation_loader:
-            x, y = x.to(device), y.to(device)
-            if net.requires_context:
-                context = context.to(device)
-            y_pred = net(x.type(torch.float32), context.type(torch.float32))
-            y_pred = y_pred.squeeze().cpu()
-            _,pred_mask = torch.max(y_pred, dim=0)
-
-            prediction = pred_mask.cpu().numpy().reshape(-1)
-            target = y.cpu().numpy().reshape(-1)        
-            weighted += jsc(target,prediction, average='weighted') # takes into account label imbalance
-            macro += jsc(target,prediction, average='macro') # simple mean over each class.                        
+        for c in range(len(Loader_validation)): 
+            dataset = Loader_validation.get_iterable_chunk(c)
+            dl = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
             if show_progress:
-                pbar.update(1)
-    macro_score = macro / len(validation_loader.dataset)
-    weighted_score = weighted / len(validation_loader.dataset)
+                pbar = tqdm(total=len(dataset.chunk_crops)//batch_size, desc=f'Chunk {c+1}')
+            for x,y,_,context in dl:
+                x, y = x.to(device), y.to(device)
+                if net.requires_context:
+                    context = context.to(device)
+                y_pred = net(x.type(torch.float32), context.type(torch.float32))
+                y_pred = y_pred.squeeze().cpu()
+                _,pred_mask = torch.max(y_pred, dim=0)
+
+                prediction = pred_mask.cpu().numpy().reshape(-1)
+                target = y.cpu().numpy().reshape(-1)        
+                weighted += jsc(target,prediction, average='weighted') # takes into account label imbalance
+                macro += jsc(target,prediction, average='macro') # simple mean over each class.                        
+                if show_progress:
+                    pbar.update(1)                
+            if show_progress:
+                pbar.close()
+    macro_score = macro / (len(dataset.chunk_crops) // batch_size)
+    weighted_score = weighted / (len(dataset.chunk_crops) // batch_size)
     if show_progress:
         pbar.close()
     return macro_score, weighted_score
     
     # validation_loss(net, validation_base_loader, len(val_base_indices))
-def validation_loss(net, loader, crit, device, show_progress = False):
+def validation_loss(net, Loader_validation, crit, device, bs, show_progress=False):
     loss_values = []
-    net.eval()
-    if show_progress:
-        pbar = tqdm(total=len(loader))
+    net.eval()    
     with torch.no_grad():
-        for image, mask, context in loader:
-            image, mask = image.to(device), mask.to(device)
-            if net.requires_context:
-                context = context.to(device)
-            mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask.squeeze().type(torch.long))
-            loss_values.append(loss.item())
+        for c in range(len(Loader_validation)):
+            dataset = Loader_validation.get_iterable_chunk(c)
+            dl = torch.utils.data.DataLoader(dataset, batch_size=bs)
             if show_progress:
-                pbar.update(1)
-    if show_progress:
-        pbar.close()
+                pbar = tqdm(total=len(dataset.chunk_crops)//bs, desc=f'Chunk {c+1}')
+            for batch_index, (image, index_mask, _, context) in enumerate(dl):
+                image, mask = image.to(device), index_mask.to(device)
+                if net.requires_context:
+                    context = context.to(device)
+                mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
+                loss = crit(mask_pred, mask.squeeze().type(torch.long))
+                loss_values.append(loss.item())
+                if show_progress:
+                    pbar.update(1)                
+            if show_progress:
+                pbar.close()
     return loss_values
 
-def save_loss(filename, values):
-    with open(filename, "w") as f:
-        for v in values:
-            f.write(str(v)+"\n")
-
-def save_model(epoch, net, opt, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir, optimizer):
+def save_model(epoch, net, opt,scheduler, train_loss, val_loss, macro_precision, weighted_precision, batch_size, checkpoint_dir, optimizer):
     torch.save({
         'epoch': epoch,
         'model_state_dict': net.state_dict(),
-        'optimizer_state_dict': opt.state_dict(),        
+        'optimizer_state_dict': opt.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
         'training_loss_values': train_loss,
         'validation_loss_values': val_loss,
         'batch_size': batch_size,
@@ -148,13 +151,13 @@ def print_sizes(net, train_dataset, validation_dataset, test_dataset):
 def load_optimizer(config, net):
     optimizer = config['opt']
     if optimizer == 'SGD1':
-        return torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.00001)
+        return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.90, weight_decay=0.0005)
     elif optimizer == 'ADAM1':
         return torch.optim.Adam(net.parameters(), lr=1e-4)
     else:
         raise ValueError("Optimizer name not valid.")
-    
 
+ 
 def load_loss(config, device, dataset=None):
     classes = config['num_classes']
     name = config['loss']
@@ -194,7 +197,7 @@ def load_loader(dataset, config, shuffle, batch_size=-1):
         sampler=custom_shuffle(dataset)
     else:
         sampler=None
-    loader = loader = torch.utils.data.DataLoader(dataset, batch_size=bs, sampler=sampler)
+    loader = loader = torch.utils.data.DataLoader(dataset, batch_size=bs, sampler=sampler, shuffle=True)
     return loader
 
 
