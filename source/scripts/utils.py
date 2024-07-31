@@ -39,8 +39,8 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
                     pbar.update(1)                
             if show_progress:
                 pbar.close()
-    macro_score = macro / (len(dataset.chunk_crops) // batch_size)
-    weighted_score = weighted / (len(dataset.chunk_crops) // batch_size)
+    macro_score = macro / ((len(dataset.chunk_crops)*len(Loader_validation))// batch_size)
+    weighted_score = weighted / ((len(dataset.chunk_crops)*len(Loader_validation))// batch_size)
     if show_progress:
         pbar.close()
     return macro_score, weighted_score
