@@ -249,3 +249,7 @@ class Fusion(nn.Module): # STILL TESTING
 		c4 = torch.concat((self.x1, y4), 1)
 		segmap = self.decode_forward4(c4)
 		return segmap
+
+def unet_torch():
+    model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet', in_channels=3, out_channels=16, init_features=224, pretrained=False)
+    return model
