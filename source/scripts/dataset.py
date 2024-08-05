@@ -146,8 +146,8 @@ class IterableChunk(torch.utils.data.IterableDataset):
                 offset_y = random.randint(-20,20)
                 offset_x = random.randint(-20,20)
                 tly += offset_y
-                tlx += offset_x            
-            
+                tlx += offset_x
+
             # get index mask name and color mask name
 
             # crop image, index mask and color mask
