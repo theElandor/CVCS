@@ -131,7 +131,7 @@ def load_network(config, device):
     elif netname == 'Fusion':
         return nets.Fusion(classes+1, device).to(device)
     elif netname == 'Unet_torch':
-        return nets.unet_torch()
+        return nets.UnetTorch(device)
     else:
         print("Invalid network name.")
         raise Exception

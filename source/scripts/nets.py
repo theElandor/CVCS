@@ -250,6 +250,10 @@ class Fusion(nn.Module): # STILL TESTING
 		segmap = self.decode_forward4(c4)
 		return segmap
 
-def unet_torch():
-    model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet', in_channels=3, out_channels=16, init_features=224, pretrained=False)
-    return model
+class UnetTorch(nn.Module):
+	def __init__(self, device, in_channels=3, out_channels=16, init_features=224, pretrained=False):
+		super(UnetTorch, self).__init__()		
+		self.model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet', in_channels=in_channels, out_channels=out_channels, init_features=init_features, pretrained=pretrained).to(device)
+		self.requires_context = False
+	def forward(self, x: torch.Tensor, context=None):
+		return self.model(x)
