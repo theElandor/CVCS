@@ -1,2 +1,1 @@
-load_checkpoint: D:\weights\test\checkpoint20
-out_image: "test.png" #generated images will be put in a grid to get a full-size prediction
+load_checkpoint: D:\weights\test_CEL\checkpoint20

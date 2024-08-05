@@ -4,13 +4,17 @@ from tqdm import tqdm
 import utils
 import yaml
 import sys
+import matplotlib.pyplot as plt
+import dataset
 inFile = sys.argv[1]
 
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 print("LOADED CONFIGURATIONS:")
 print(config)
-train_dataset, validation_dataset, test_dataset = utils.load_dataset(config)
+#train_dataset, validation_dataset, test_dataset = utils.load_dataset(config)
+Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True)
+Loader_validation = dataset.Loader(config['validation'], 1) # chunk size of 1 for validation to save RAM. No random shift.
 device = utils.load_device(config)
 
 try:
@@ -19,15 +23,18 @@ except:
     print("Error in loading network.")
     exit(0)
 
-utils.print_sizes(net, train_dataset, validation_dataset, test_dataset)
+#utils.print_sizes(net, train_dataset, validation_dataset, test_dataset)
+print(f"Training patches: {len(Loader_train.images)*960}")
+print(f"Validation patches: {len(Loader_validation.images)*960}")
 
 try:
-    crit = utils.load_loss(config, device, train_dataset)
+    crit = utils.load_loss(config, device)
 except:
     print("Error in loading loss module.")
     exit(0)
 try:
     opt = utils.load_optimizer(config, net)
+    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt)    
 except:
     print("Error in loading optimizer")
     exit(0)
@@ -43,6 +50,7 @@ if  'load_checkpoint' in config.keys():
     checkpoint = torch.load(config['load_checkpoint'])
     net.load_state_dict(checkpoint['model_state_dict'])
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
     last_epoch = checkpoint['epoch']+1
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
@@ -53,18 +61,20 @@ if  'load_checkpoint' in config.keys():
 else:
     last_epoch = 0
 
-if not Path(config['checkpoint_directory']).is_dir():
-    print("Please provide a valid directory to save checkpoints in.")
-else:    
-    for epoch in range(last_epoch, config['epochs']):        
-        print("Started epoch {}".format(epoch+1), flush=True)
-        #initialize train_loader at each epoch to have a different shuffle every time
-        train_loader = utils.load_loader(train_dataset, config, True)
+assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid directory to save checkpoints in."
+
+
+for epoch in range(last_epoch, config['epochs']):        
+    print("Started epoch {}".format(epoch+1), flush=True)    
+    Loader_train.shuffle()
+    for c in range(len(Loader_train)):        
+        dataset = Loader_train.get_iterable_chunk(c)
+        dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
-            pbar = tqdm(total=len(train_loader), desc=f'Epoch {epoch+1}')
-        net.train()    
-        for batch_index, (image, mask, context) in enumerate(train_loader):            
-            image, mask = image.to(device), mask.to(device)
+            pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
+        net.train()
+        for batch_index, (image, index_mask, _, context) in enumerate(dl):            
+            image, mask = image.to(device), index_mask.to(device)
             # avoid loading context to GPU if not needed
             if net.requires_context:
                 context = context.to(device)            
@@ -79,31 +89,28 @@ else:
                 pbar.set_postfix({'Loss': loss.item()})
         if config['verbose']:
             pbar.close()
-        # run evaluation!
-        # 1) Re-initialize data loaders
-        validation_loader = utils.load_loader(validation_dataset, config, False)
-        # 2) Call evaluation Loop (run model for 1 epoch on validation set)
-        print("Running validation...", flush=True)
-        validation_loss_values += utils.validation_loss(net, validation_loader, crit, device, show_progress=config['verbose'])
-        # 3) Append results to list
+    scheduler.step()
+    print("Running validation...", flush=True)
+    validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
 
-        if (epoch+1) % config['precision_evaluation_freq'] == 0:
-            print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
-            precision_loader = utils.load_loader(validation_dataset, config, False, batch_size=1)
-            macro, weighted = utils.eval_model(net, precision_loader, device, show_progress=config['verbose'])
-            print(f"mIou: {macro}")
-            print(f"weighted mIoU: {weighted}", flush=True)
-            macro_precision.append(macro)
-            weighted_precision.append(weighted)
+    if (epoch+1) % config['precision_evaluation_freq'] == 0:
+        print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
+        #precision_loader = utils.load_loader(validation_dataset, config, False, batch_size=1)
 
-        if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs            
-            utils.save_model(epoch, net, opt, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
-                       config['batch_size'], 
-                       config['checkpoint_directory'], 
-                       config['opt']
-                    )
-            print("Saved checkpoint {}".format(epoch+1), flush=True)
+        macro, weighted = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
+        print(f"mIou: {macro}")
+        print(f"weighted mIoU: {weighted}", flush=True)
+        macro_precision.append(macro)
+        weighted_precision.append(weighted)
 
-    print("Training Done!")
-    print(f"Reached training loss: {training_loss_values[-1]}")
-    print(f"Reached validation loss: {validation_loss_values[-1]}")
+    if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs            
+        utils.save_model(epoch, net, opt, scheduler, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
+                    config['batch_size'], 
+                    config['checkpoint_directory'], 
+                    config['opt']
+                )
+        print("Saved checkpoint {}".format(epoch+1), flush=True)
+
+print("Training Done!")
+print(f"Reached training loss: {training_loss_values[-1]}")
+print(f"Reached validation loss: {validation_loss_values[-1]}")
