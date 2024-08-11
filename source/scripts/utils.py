@@ -134,6 +134,8 @@ def load_network(config, device):
         return nets.UnetTorch(device)
     elif netname == 'Unetv2':
         return nets.Urnetv2(classes+1).to(device)
+    elif netname == 'FUnet':
+        return nets.FUnet(classes+1).to(device)
     else:
         print("Invalid network name.")
         raise Exception

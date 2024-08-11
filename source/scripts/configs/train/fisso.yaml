@@ -10,8 +10,8 @@ freq: 1
 verbose: True
 batch_size: 4
 precision_evaluation_freq: 1
-net: Unetv2
+net: FUnet
 opt: SGD1
 loss: CEL
 num_classes: 15
-patch_size: 256
+patch_size: 224
