@@ -257,3 +257,93 @@ class UnetTorch(nn.Module):
 		self.requires_context = False
 	def forward(self, x: torch.Tensor, context=None):
 		return self.model(x)
+
+class Urnetv2(nn.Module):
+      # classic Unet with some reshape and cropping to match our needs.
+	def __init__(self, num_classes):
+		super(Urnetv2, self).__init__()
+		self.residuals = []
+		self.requires_context = False
+    	# encoding part of the Unet vanilla architecture
+		self.encode1 = nn.Sequential(
+			UnetEncodeLayer(3, 64, padding=1),
+			UnetEncodeLayer(64, 64, padding=1), ## keep dimensions unchanged
+		)
+		self.encode2 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(64, 128, padding=1),
+			UnetEncodeLayer(128, 128, padding=1),
+		)
+		self.encode3 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(128, 256, padding=1),
+			UnetEncodeLayer(256, 256, padding=1),
+		)
+		self.encode4 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(256, 512, padding=1),
+			UnetEncodeLayer(512, 512, padding=1),
+		)
+		self.encode5 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(512, 1024, padding=1),
+			UnetEncodeLayer(1024, 1024, padding=1),
+		)
+		self.upscale1 = nn.Sequential(
+			nn.ConvTranspose2d(1024, 512,kernel_size=2, stride=2)
+		)
+		self.decode_forward1 = nn.Sequential(
+			UnetForwardDecodeLayer(1024,512, padding=1)
+		)
+		self.upscale2 = nn.Sequential(
+			nn.ConvTranspose2d(512, 256,kernel_size=2, stride=2)
+		)
+		self.decode_forward2 = nn.Sequential(
+			UnetForwardDecodeLayer(512, 256, padding=1)
+		)
+		self.upscale3 = nn.Sequential(
+			nn.ConvTranspose2d(256, 128,kernel_size=2, stride=2)
+		)
+		self.decode_forward3 = nn.Sequential(
+			UnetForwardDecodeLayer(256,128,padding=1)
+		)
+		self.upscale4 = nn.Sequential(
+			nn.ConvTranspose2d(128, 64,kernel_size=2, stride=2)
+		)
+		self.decode_forward4 = nn.Sequential(
+			UnetForwardDecodeLayer(128,64, padding=1),
+			nn.Conv2d(64, num_classes, kernel_size=1) # final conv 1x1
+			# Model output is 6xHxW, so we have a prob. distribution
+			# for each pixel (each pixel has a logit for each of the 6 classes.)
+		)
+	def forward(self, x: torch.Tensor, context=None):
+		self.x1 = self.encode1(x)
+		self.x2 = self.encode2(self.x1)
+		self.x3 = self.encode3(self.x2)
+		self.x4 = self.encode4(self.x3)
+		self.x5 = self.encode5(self.x4)
+
+		y1 = self.upscale1(self.x5)
+
+		# testing transpose conv
+		# upscale = nn.ConvTranspose2d(1024, 512,kernel_size=2, stride=2)
+		# y1_test = upscale(self.x5)
+		# print(f"Input shape: {self.x5.shape}")
+		# print(f"upconv output shape: {y1.shape}")
+		# print(f"ConvTranspose2D output shape: {y1_test.shape}")
+
+		c1 = torch.concat((self.x4, y1), 1)
+		y2 = self.decode_forward1(c1)
+		
+		y2 = self.upscale2(y2)
+		c2 = torch.concat((self.x3, y2), 1)
+		y3 = self.decode_forward2(c2)
+
+		y3 = self.upscale3(y3)
+		c3 = torch.concat((functional.center_crop(y3, self.x2.shape[2]), self.x2), 1)
+		y4 = self.decode_forward3(c3)
+
+		y4 = self.upscale4(y4)
+		c4 = torch.concat((self.x1, y4), 1)
+		segmap = self.decode_forward4(c4)
+		return segmap

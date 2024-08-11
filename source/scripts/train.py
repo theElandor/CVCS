@@ -19,11 +19,11 @@ device = utils.load_device(config)
 
 try:
     net = utils.load_network(config, device)
+    print(f"number of parameters: {utils.count_params(net)}")
 except:
     print("Error in loading network.")
     exit(0)
 
-#utils.print_sizes(net, train_dataset, validation_dataset, test_dataset)
 print(f"Training patches: {len(Loader_train.images)*960}")
 print(f"Validation patches: {len(Loader_validation.images)*960}")
 
