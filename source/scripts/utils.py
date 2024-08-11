@@ -132,6 +132,8 @@ def load_network(config, device):
         return nets.Fusion(classes+1, device).to(device)
     elif netname == 'Unet_torch':
         return nets.UnetTorch(device)
+    elif netname == 'Unetv2':
+        return nets.Urnetv2(classes+1).to(device)
     else:
         print("Invalid network name.")
         raise Exception
@@ -143,23 +145,19 @@ def load_gaofen(train, validation, test):
     test_dataset = GID15(test)
     return train_dataset, validation_dataset, test_dataset
 
-def print_sizes(net, train_dataset, validation_dataset, test_dataset):
-    num_params = sum([np.prod(p.shape) for p in net.parameters()])
-    print(f"Number of parameters : {num_params}")
-    print("Training samples: {}".format(train_dataset.__len__()))
-    print("Validation samples: {}".format(validation_dataset.__len__()))
-    print("Test samples: {}".format(test_dataset.__len__()), flush=True)
+def count_params(net):
+    return sum(p.numel() for p in net.parameters() if p.requires_grad)
+
 
 def load_optimizer(config, net):
     optimizer = config['opt']
     if optimizer == 'SGD1':
-        return torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.90, weight_decay=0.0005)
+        return torch.optim.SGD(net.parameters(), lr=0.005, momentum=0.90, weight_decay=0.0005)
     elif optimizer == 'ADAM1':
         return torch.optim.Adam(net.parameters(), lr=1e-4)
     else:
         raise ValueError("Optimizer name not valid.")
 
- 
 def load_loss(config, device, dataset=None):
     classes = config['num_classes']
     name = config['loss']

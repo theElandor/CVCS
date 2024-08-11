@@ -13,19 +13,21 @@ with open(inFile,"r") as f:
 print("LOADED CONFIGURATIONS:")
 print(config)
 #train_dataset, validation_dataset, test_dataset = utils.load_dataset(config)
-Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True)
-Loader_validation = dataset.Loader(config['validation'], 1) # chunk size of 1 for validation to save RAM. No random shift.
+Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
+Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
 device = utils.load_device(config)
 
 try:
     net = utils.load_network(config, device)
+    print(f"number of parameters: {utils.count_params(net)}")
 except:
     print("Error in loading network.")
     exit(0)
 
-#utils.print_sizes(net, train_dataset, validation_dataset, test_dataset)
-print(f"Training patches: {len(Loader_train.images)*960}")
-print(f"Validation patches: {len(Loader_validation.images)*960}")
+print(f"Patch size: {Loader_train.patch_size}")
+print(f"Tiles(patches) per image: {Loader_train.tpi}")
+print(f"Training patches: {len(Loader_train.images)*Loader_train.tpi}")
+print(f"Validation patches: {len(Loader_validation.images)*Loader_validation.tpi}")
 
 try:
     crit = utils.load_loss(config, device)
@@ -67,7 +69,7 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
     Loader_train.shuffle()
-    for c in range(len(Loader_train)):        
+    for c in range(len(Loader_train)):
         dataset = Loader_train.get_iterable_chunk(c)
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:

@@ -116,92 +116,115 @@ class GID15(Dataset):
 	
 
 class IterableChunk(torch.utils.data.IterableDataset):
+	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224):
+		super(IterableChunk).__init__()
+		self.indexdir = indexdir
+		self.maskdir = maskdir
+		self.p = patch_size
 
-    def __init__(self, chunk, images, indexdir, maskdir, random_shift=False):
-        super(IterableChunk).__init__()
-        self.indexdir = indexdir
-        self.maskdir = maskdir
-        self.p = 224
-        self.tpe = 960 # tiles per image
-        self.random_shift = random_shift
-        self.image_shape = (6800, 7200)
-        self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
-        self.to_load = [images[idx] for idx in chunk]
-        self.chunk_size = len(chunk)
-        self.chunk_crops = [_ for _ in range(self.tpe*self.chunk_size)] # [0...1919] if chunk size is 2
-        random.shuffle(self.chunk_crops)
-        self.images, self.index_masks, self.color_masks = self.load_images(self.to_load)
-        self.resize = v2.Resize(self.p)
-        # shuffle chunk_crops and crop the coresponding image
-        # still need to shuffle chunk_crops
-        self.patches = [] # list of tuples (image_crop, index_crop, mask_crop, context_crop)
-        for x in self.chunk_crops:            
-            target_image = x // self.tpe
-            tile_idx = x % self.tpe
-            tile_pos = (tile_idx // self.tiles_in_img_shape[1], tile_idx % self.tiles_in_img_shape[1])
-            tly, tlx = (tile_pos[0] * self.p, tile_pos[1] * self.p)
+		self.image_shape = image_shape
+		self.tpi = tpi
 
-            # apply random shift
-            if self.random_shift:
-                offset_y = random.randint(-20,20)
-                offset_x = random.randint(-20,20)
-                tly += offset_y
-                tlx += offset_x
+		self.random_shift = random_shift		
+		self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
+		self.to_load = [images[idx] for idx in chunk]
+		self.chunk_size = len(chunk)
+		self.chunk_crops = [_ for _ in range(self.tpi*self.chunk_size)] # [0...1919] if chunk size is 2
+		random.shuffle(self.chunk_crops)
+		self.images, self.index_masks, self.color_masks = self.load_images(self.to_load)
+		self.resize = v2.Resize(self.p)
+		# shuffle chunk_crops and crop the coresponding image
+		# still need to shuffle chunk_crops
+		self.patches = [] # list of tuples (image_crop, index_crop, mask_crop, context_crop)
+		for x in self.chunk_crops:            
+			target_image = x // self.tpi
+			tile_idx = x % self.tpi
+			tile_pos = (tile_idx // self.tiles_in_img_shape[1], tile_idx % self.tiles_in_img_shape[1])
+			tly, tlx = (tile_pos[0] * self.p, tile_pos[1] * self.p)
 
-            # get index mask name and color mask name
+			# apply random shift
+			if self.random_shift:
+				offset_y = random.randint(-20,20)
+				offset_x = random.randint(-20,20)
+				tly += offset_y
+				tlx += offset_x
 
-            # crop image, index mask and color mask
-            patch = v2.functional.crop(self.images[target_image], tly, tlx, self.p, self.p)
-            index_mask = v2.functional.crop(self.index_masks[target_image], tly, tlx, self.p, self.p)
-            color_mask = v2.functional.crop(self.color_masks[target_image], tly, tlx, self.p, self.p)
+			# get index mask name and color mask name
 
-            #locate, crop and resize context
-            c_tly = tly-self.p
-            c_tlx = tlx-self.p
-            h = w = self.p*3
-            context = self.resize(v2.functional.crop(self.images[target_image], c_tly, c_tlx, h, w))            
-            # append everything to list
-            self.patches.append((patch, index_mask, color_mask, context))
-            
-    def load_images(self, names):
-        """
-        Parameters:
-            names (list): list of full paths of images to load
-        Returns:
-            images (list): List of pre-loaded images
-            index_masks (list): List of pre-loaded index masks
-            color_masks (list): List of pre-loaded color masks
-        """
-        print("Loading chunk:")
-        for name in names:
-            print(name)
-        images = [tv_tensors.Image(Image.open(name)) for name in names]
-        index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir,Path(name).stem + "_15label.png"))) for name in names]
-        color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir,Path(name).stem + "_15label.tif"))) for name in names]
-        return images, index_masks, color_masks
+			# crop image, index mask and color mask
+			patch = v2.functional.crop(self.images[target_image], tly, tlx, self.p, self.p)
+			index_mask = v2.functional.crop(self.index_masks[target_image], tly, tlx, self.p, self.p)
+			color_mask = v2.functional.crop(self.color_masks[target_image], tly, tlx, self.p, self.p)
 
-    def __iter__(self):
-        return iter(self.patches)
-    
-    def show_patch(self, index):
-        plt.imshow(self.patches[index].permute(1,2,0))
-        plt.show()
+			#locate, crop and resize context
+			c_tly = tly-self.p
+			c_tlx = tlx-self.p
+			h = w = self.p*3
+			context = self.resize(v2.functional.crop(self.images[target_image], c_tly, c_tlx, h, w))            
+			# append everything to list
+			self.patches.append((patch, index_mask, color_mask, context))
+			
+	def load_images(self, names):
+		"""
+		Parameters:
+			names (list): list of full paths of images to load
+		Returns:
+			images (list): List of pre-loaded images
+			index_masks (list): List of pre-loaded index masks
+			color_masks (list): List of pre-loaded color masks
+		"""
+		print("Loading chunk:")
+		for name in names:
+			print(name)
+		images = [tv_tensors.Image(Image.open(name)) for name in names]
+		index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir,Path(name).stem + "_15label.png"))) for name in names]
+		color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir,Path(name).stem + "_15label.tif"))) for name in names]
+		return images, index_masks, color_masks	
 
-    
+	def __iter__(self):
+		return iter(self.patches)
+	
+	def show_patch(self, index):
+		plt.imshow(self.patches[index].permute(1,2,0))
+		plt.show()
+
+	
 class Loader():
-	def __init__(self, root, chunk_size=2, random_shift=False):
+	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224):
 		self.root = root
+		self.patch_size = patch_size
+		self.chunk_size = chunk_size
 		self.random_shift = random_shift
 		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
 		self.indexdir = os.path.join(root, "Annotation__index")
 		self.maskdir = os.path.join(root, "Annotation__color")
+
 		self.images = sorted([os.path.join(self.imdir, image) for image in os.listdir(self.imdir)])
+
+		self.image_shape = self.__get_shape(self.images)
+		self.tpi = self.__get_tpi()
+
 		self.idxs = [_ for _ in range(len(self.images))]
-		self.chunk_size = chunk_size
 		self.chunks = None
+		assert patch_size in [224, 256, 512], "Patch size either not supported or not recommended"
 		assert len(self.images) % self.chunk_size == 0, "Number of images not divisible by chunk size."        
 		self.__generate_chunks()
 
+
+	def __get_shape(self,images):
+		"""
+		Opens a image from directory and saves the shape
+		"""
+		sample = tv_tensors.Image(Image.open(images[0]))		
+		return list(sample.shape)[1:]
+	
+	def __get_tpi(self):
+		"""
+		Based on image shape and patch size (patch_size), computes the tiles per image (tpi)
+		"""
+		h,w = self.image_shape
+		return (h//self.patch_size)*(w//self.patch_size)
+	
 	def shuffle(self):
 		random.shuffle(self.idxs)
 		self.__generate_chunks()
@@ -213,7 +236,14 @@ class Loader():
 		Returns:
 			(IterableChunk): iterator on the specified chunk with shuffled patches.
 		"""
-		return IterableChunk(self.chunks[idx], self.images, self.indexdir, self.maskdir, self.random_shift)
+		return IterableChunk(self.chunks[idx], 
+							self.images, 
+							self.indexdir, 
+							self.maskdir, 
+							image_shape = self.image_shape,
+							tpi = self.tpi,
+							random_shift=self.random_shift,
+							patch_size=self.patch_size,)
 
 	def get_chunk(self,idx):
 		"""
