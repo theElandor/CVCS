@@ -116,14 +116,14 @@ class GID15(Dataset):
 	
 
 class IterableChunk(torch.utils.data.IterableDataset):
-	def __init__(self, chunk, images, indexdir, maskdir, random_shift=False, patch_size=224):
+	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224):
 		super(IterableChunk).__init__()
 		self.indexdir = indexdir
 		self.maskdir = maskdir
 		self.p = patch_size
 
-		self.image_shape = self.__get_shape(images)
-		self.tpi = self.__get_tpi()
+		self.image_shape = image_shape
+		self.tpi = tpi
 
 		self.random_shift = random_shift		
 		self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
@@ -179,20 +179,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		images = [tv_tensors.Image(Image.open(name)) for name in names]
 		index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir,Path(name).stem + "_15label.png"))) for name in names]
 		color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir,Path(name).stem + "_15label.tif"))) for name in names]
-		return images, index_masks, color_masks
-	
-	def __get_tpi(self):
-		"""
-		Based on image shape and patch size (p), computes the tiles per image (tpi)
-		"""
-		h,w = self.image_shape
-		return (h//self.p)*(w//self.p)
-	def __get_shape(self,images):
-		"""
-		Opens a image from directory and saves the shape
-		"""
-		sample = tv_tensors.Image(Image.open(images[0]))		
-		return list(sample.shape)[1:]
+		return images, index_masks, color_masks	
 
 	def __iter__(self):
 		return iter(self.patches)
@@ -205,19 +192,39 @@ class IterableChunk(torch.utils.data.IterableDataset):
 class Loader():
 	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224):
 		self.root = root
+		self.patch_size = patch_size
+		self.chunk_size = chunk_size
 		self.random_shift = random_shift
 		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
 		self.indexdir = os.path.join(root, "Annotation__index")
 		self.maskdir = os.path.join(root, "Annotation__color")
+
 		self.images = sorted([os.path.join(self.imdir, image) for image in os.listdir(self.imdir)])
+
+		self.image_shape = self.__get_shape(self.images)
+		self.tpi = self.__get_tpi()
+
 		self.idxs = [_ for _ in range(len(self.images))]
-		self.chunk_size = chunk_size
 		self.chunks = None
-		self.patch_size = patch_size
 		assert patch_size in [224, 256, 512], "Patch size either not supported or not recommended"
 		assert len(self.images) % self.chunk_size == 0, "Number of images not divisible by chunk size."        
 		self.__generate_chunks()
 
+
+	def __get_shape(self,images):
+		"""
+		Opens a image from directory and saves the shape
+		"""
+		sample = tv_tensors.Image(Image.open(images[0]))		
+		return list(sample.shape)[1:]
+	
+	def __get_tpi(self):
+		"""
+		Based on image shape and patch size (patch_size), computes the tiles per image (tpi)
+		"""
+		h,w = self.image_shape
+		return (h//self.patch_size)*(w//self.patch_size)
+	
 	def shuffle(self):
 		random.shuffle(self.idxs)
 		self.__generate_chunks()
@@ -229,7 +236,14 @@ class Loader():
 		Returns:
 			(IterableChunk): iterator on the specified chunk with shuffled patches.
 		"""
-		return IterableChunk(self.chunks[idx], self.images, self.indexdir, self.maskdir, self.random_shift, patch_size=self.patch_size)
+		return IterableChunk(self.chunks[idx], 
+							self.images, 
+							self.indexdir, 
+							self.maskdir, 
+							image_shape = self.image_shape,
+							tpi = self.tpi,
+							random_shift=self.random_shift,
+							patch_size=self.patch_size,)
 
 	def get_chunk(self,idx):
 		"""

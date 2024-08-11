@@ -4,6 +4,7 @@ test: D:\Datasets\GID15_test\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
 epochs: 10
+patch_size: 224
 chunk_size: 5
 freq: 1
 verbose: True
@@ -13,3 +14,4 @@ net: Unetv2
 opt: SGD1
 loss: CEL
 num_classes: 15
+patch_size: 256

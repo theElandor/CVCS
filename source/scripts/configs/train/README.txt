@@ -47,16 +47,20 @@
   Unetv2: Unet with Transpose Convolution in decoding path
   Unet_torch: unet from torch repository (heavy, 300M parameters(?))
 
-opt: <str>
++ opt: <str>
   Available setups:
   1) SGD1
   2) ADAM1
 
-loss: <str>
++ loss: <str>
   Available losses:
   1) DEL: DiceEntropyLoss
   2) CEL: CrossEntropyLoss
   3) DL: DiceLoss
   
-num_classes: <int>
++ num_classes: <int>
   For GID15 dataset, keep this set to 15
+
++ patch_size: <int>
+  Size of patch cropped from original sized image.
+  Available patch sizes are 224, 256, 512
