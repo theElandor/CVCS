@@ -67,7 +67,7 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
     Loader_train.shuffle()
-    for c in range(len(Loader_train)):        
+    for c in range(len(Loader_train)):
         dataset = Loader_train.get_iterable_chunk(c)
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
