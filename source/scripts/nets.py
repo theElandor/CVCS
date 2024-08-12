@@ -13,8 +13,7 @@ from transformers import AutoModel
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
 	def __init__(self, num_classes):
-		super(Urnet, self).__init__()
-		self.residuals = []
+		super(Urnet, self).__init__()		
 		self.requires_context = False
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
@@ -148,8 +147,7 @@ class Fusion(nn.Module): # STILL TESTING
 	def __init__(self, num_classes, device):
 		super(Fusion, self).__init__()
 		self.requires_context = True
-		self.device = device
-		self.residuals = []
+		self.device = device		
 		model_name = "microsoft/swin-base-patch4-window7-224"
 		self.swin = AutoModel.from_pretrained(model_name)
 		self.image_processor = AutoImageProcessor.from_pretrained(model_name)		
@@ -261,8 +259,7 @@ class UnetTorch(nn.Module):
 class Urnetv2(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
 	def __init__(self, num_classes):
-		super(Urnetv2, self).__init__()
-		self.residuals = []
+		super(Urnetv2, self).__init__()		
 		self.requires_context = False
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
@@ -324,14 +321,6 @@ class Urnetv2(nn.Module):
 		self.x5 = self.encode5(self.x4)
 
 		y1 = self.upscale1(self.x5)
-
-		# testing transpose conv
-		# upscale = nn.ConvTranspose2d(1024, 512,kernel_size=2, stride=2)
-		# y1_test = upscale(self.x5)
-		# print(f"Input shape: {self.x5.shape}")
-		# print(f"upconv output shape: {y1.shape}")
-		# print(f"ConvTranspose2D output shape: {y1_test.shape}")
-
 		c1 = torch.concat((self.x4, y1), 1)
 		y2 = self.decode_forward1(c1)
 		
@@ -346,4 +335,139 @@ class Urnetv2(nn.Module):
 		y4 = self.upscale4(y4)
 		c4 = torch.concat((self.x1, y4), 1)
 		segmap = self.decode_forward4(c4)
+		return segmap
+	
+class FUnet(nn.Module):
+      # classic Unet with some reshape and cropping to match our needs.
+	def __init__(self, num_classes):
+		super(FUnet, self).__init__()		
+		self.requires_context = True
+		# -----------------PATCH ENCODER-----------------------
+		self.encode1 = nn.Sequential(
+			UnetEncodeLayer(3, 64, padding=1),
+			UnetEncodeLayer(64, 64, padding=1), ## keep dimensions unchanged
+		)
+		self.encode2 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(64, 128, padding=1),
+			UnetEncodeLayer(128, 128, padding=1),
+		)
+		self.encode3 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(128, 256, padding=1),
+			UnetEncodeLayer(256, 256, padding=1),
+		)
+		self.encode4 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(256, 512, padding=1),
+			UnetEncodeLayer(512, 512, padding=1),
+		)
+		self.encode5 = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(512, 1024, padding=1),
+			UnetEncodeLayer(1024, 1024, padding=1),
+		)
+		# -----------------CONTEXT ENCODER--------------------
+		self.encode1_c = nn.Sequential(
+			UnetEncodeLayer(3, 64, padding=1),
+			UnetEncodeLayer(64, 64, padding=1), ## keep dimensions unchanged
+		)
+		self.encode2_c = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(64, 128, padding=1),
+			UnetEncodeLayer(128, 128, padding=1),
+		)
+		self.encode3_c = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(128, 256, padding=1),
+			UnetEncodeLayer(256, 256, padding=1),
+		)
+		self.encode4_c = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(256, 512, padding=1),
+			UnetEncodeLayer(512, 512, padding=1),
+		)
+		self.encode5_c = nn.Sequential(
+			nn.MaxPool2d(kernel_size=2, stride=2),
+			UnetEncodeLayer(512, 1024, padding=1),
+			UnetEncodeLayer(1024, 1024, padding=1),
+		)		
+
+		# ---------------DECODER-----------------
+
+		self.upscale1 = nn.Sequential(
+			nn.ConvTranspose2d(1024, 512,kernel_size=2, stride=2)
+		)
+		self.decode_forward1 = nn.Sequential(
+			UnetForwardDecodeLayer(1536,512, padding=1)
+		)
+		self.upscale2 = nn.Sequential(
+			nn.ConvTranspose2d(512, 256,kernel_size=2, stride=2)
+		)
+		self.decode_forward2 = nn.Sequential(
+			UnetForwardDecodeLayer(768, 256, padding=1)
+		)
+		self.upscale3 = nn.Sequential(
+			nn.ConvTranspose2d(256, 128,kernel_size=2, stride=2)
+		)
+		self.decode_forward3 = nn.Sequential(
+			UnetForwardDecodeLayer(384,128,padding=1)
+		)
+		self.upscale4 = nn.Sequential(
+			nn.ConvTranspose2d(128, 64,kernel_size=2, stride=2)
+		)
+		self.decode_forward4 = nn.Sequential(
+			UnetForwardDecodeLayer(192,64, padding=1),
+			nn.Conv2d(64, num_classes, kernel_size=1) # final conv 1x1
+			# Model output is 6xHxW, so we have a prob. distribution
+			# for each pixel (each pixel has a logit for each of the 6 classes.)
+		)
+
+		self.fusion = nn.Sequential(
+			UnetForwardDecodeLayer(2048,1024, padding=1),			
+		)
+
+	def encode_patch(self, x: torch.Tensor):
+		self.x1 = self.encode1(x)
+		self.x2 = self.encode2(self.x1)
+		self.x3 = self.encode3(self.x2)
+		self.x4 = self.encode4(self.x3)
+		self.x5 = self.encode5(self.x4)
+		return self.x5
+
+	def encode_context(self, x:torch.Tensor):
+		self.x1_c = self.encode1_c(x)
+		self.x2_c = self.encode2_c(self.x1_c)
+		self.x3_c = self.encode3_c(self.x2_c)
+		self.x4_c = self.encode4_c(self.x3_c)
+		self.x5_c = self.encode5_c(self.x4_c)
+		return self.x5_c
+	
+	def embedding_fusion(self):
+		self.concat_embeddings = torch.concat((self.x5, self.x5_c), 1)		
+		self.fused_features = self.fusion(self.concat_embeddings)		
+
+	def decode(self):
+		y1 = self.upscale1(self.fused_features)
+
+		c1 = torch.concat((self.x4, self.x4_c, y1), 1)
+		y2 = self.decode_forward1(c1)
+		
+		y2 = self.upscale2(y2)
+		c2 = torch.concat((self.x3, self.x3_c, y2), 1)
+		y3 = self.decode_forward2(c2)
+
+		y3 = self.upscale3(y3)
+		c3 = torch.concat((self.x2, self.x2_c, functional.center_crop(y3, self.x2.shape[2])), 1)
+		y4 = self.decode_forward3(c3)
+
+		y4 = self.upscale4(y4)
+		c4 = torch.concat((self.x1, self.x1_c, y4), 1)
+		return self.decode_forward4(c4)
+		
+	def forward(self, x: torch.Tensor, context):
+		patch_embedding = self.encode_patch(x)
+		context_embedding = self.encode_context(context)
+		self.embedding_fusion()
+		segmap = self.decode()
 		return segmap

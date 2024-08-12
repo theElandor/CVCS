@@ -11,8 +11,7 @@ class UnetEncodeLayer(nn.Module):
 		super(UnetEncodeLayer, self).__init__()
 		layers = [
             conv3x3(in_channels, out_channels, padding=padding),
-			nn.BatchNorm2d(out_channels),
-            # nn.BatchNorm2d(out_channels),
+			nn.BatchNorm2d(out_channels),            
         ]
 		if activated:
 			layers += [nn.ReLU()]
