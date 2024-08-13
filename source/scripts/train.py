@@ -77,9 +77,7 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
     Loader_train.shuffle() # shuffle full-sized images
-    for c in range(len(Loader_train)):
-        if c == 0:
-            break
+    for c in range(len(Loader_train)):        
         dataset = Loader_train.get_iterable_chunk(c)
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
@@ -102,8 +100,8 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar.close()
     scheduler.step()
-    #print("Running validation...", flush=True)
-    #validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
+    print("Running validation...", flush=True)
+    validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
 
     if (epoch+1) % config['precision_evaluation_freq'] == 0:
         print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
