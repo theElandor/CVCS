@@ -6,6 +6,7 @@ import yaml
 import sys
 import matplotlib.pyplot as plt
 import dataset
+from prettytable import PrettyTable
 inFile = sys.argv[1]
 
 with open(inFile,"r") as f:
@@ -17,17 +18,19 @@ Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shif
 Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
 device = utils.load_device(config)
 
+t = PrettyTable(['Name', 'Value'])
 try:
     net = utils.load_network(config, device)
-    print(f"number of parameters: {utils.count_params(net)}")
+    t.add_row(['parameters', utils.count_params(net)])    
 except:
     print("Error in loading network.")
     exit(0)
 
-print(f"Patch size: {Loader_train.patch_size}")
-print(f"Tiles(patches) per image: {Loader_train.tpi}")
-print(f"Training patches: {len(Loader_train.images)*Loader_train.tpi}")
-print(f"Validation patches: {len(Loader_validation.images)*Loader_validation.tpi}")
+t.add_row(['Patch size',Loader_train.patch_size])
+t.add_row(['Tpe',Loader_train.tpi])
+t.add_row(['Training patches',len(Loader_train.images)*Loader_train.tpi])
+t.add_row(['Validation patches', len(Loader_validation.images)*Loader_validation.tpi])
+print(t, flush=True)
 
 try:
     crit = utils.load_loss(config, device)
@@ -46,6 +49,7 @@ training_loss_values = []
 validation_loss_values = []
 macro_precision = []
 weighted_precision = []
+confusion_matrixes = []
 
 if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
@@ -59,6 +63,10 @@ if  'load_checkpoint' in config.keys():
     config['batch_size'] = checkpoint['batch_size']
     macro_precision = checkpoint['macro_precision']
     weighted_precision = checkpoint['weighted_precision']
+    try:
+        confusion_matrixes = checkpoint['confusion_matrixes']
+    except:
+        print("Cannot find confusion matrix in specified checkpoint.")
     print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)
 else:
     last_epoch = 0
@@ -68,14 +76,16 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
-    Loader_train.shuffle()
+    Loader_train.shuffle() # shuffle full-sized images
     for c in range(len(Loader_train)):
+        if c == 0:
+            break
         dataset = Loader_train.get_iterable_chunk(c)
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
             pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
-        for batch_index, (image, index_mask, _, context) in enumerate(dl):            
+        for batch_index, (image, index_mask, _, context) in enumerate(dl):
             image, mask = image.to(device), index_mask.to(device)
             # avoid loading context to GPU if not needed
             if net.requires_context:
@@ -92,21 +102,26 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar.close()
     scheduler.step()
-    print("Running validation...", flush=True)
-    validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
+    #print("Running validation...", flush=True)
+    #validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
 
     if (epoch+1) % config['precision_evaluation_freq'] == 0:
         print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
-        #precision_loader = utils.load_loader(validation_dataset, config, False, batch_size=1)
 
-        macro, weighted = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
-        print(f"mIou: {macro}")
-        print(f"weighted mIoU: {weighted}", flush=True)
+        macro, weighted, flat, normalized = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
+        confusion = flat.compute() # get confusion matrix as tensor
+        utils.print_metrics(macro, weighted, confusion)
         macro_precision.append(macro)
         weighted_precision.append(weighted)
+        confusion_matrixes.append(confusion)
 
-    if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs            
-        utils.save_model(epoch, net, opt, scheduler, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
+
+    if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs
+        utils.save_model(epoch, 
+                    net, opt, scheduler, 
+                    training_loss_values, validation_loss_values, 
+                    macro_precision, weighted_precision,
+                    confusion_matrixes,
                     config['batch_size'], 
                     config['checkpoint_directory'], 
                     config['opt']
