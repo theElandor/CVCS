@@ -13,7 +13,6 @@ with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 print("LOADED CONFIGURATIONS:")
 print(config)
-#train_dataset, validation_dataset, test_dataset = utils.load_dataset(config)
 Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
 Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
 device = utils.load_device(config)
@@ -49,7 +48,8 @@ training_loss_values = []
 validation_loss_values = []
 macro_precision = []
 weighted_precision = []
-confusion_matrixes = []
+conf_flat = []
+conf_normalized = []
 
 if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
@@ -63,8 +63,10 @@ if  'load_checkpoint' in config.keys():
     config['batch_size'] = checkpoint['batch_size']
     macro_precision = checkpoint['macro_precision']
     weighted_precision = checkpoint['weighted_precision']
+    # try to load confusion matrix, usefull for retrocompatibility for old models.
     try:
-        confusion_matrixes = checkpoint['confusion_matrixes']
+        conf_flat = checkpoint['conf_flat']
+        conf_normalized = checkpoint['conf_normalized']
     except:
         print("Cannot find confusion matrix in specified checkpoint.")
     print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)
@@ -109,9 +111,11 @@ for epoch in range(last_epoch, config['epochs']):
         macro, weighted, flat, normalized = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
         confusion = flat.compute() # get confusion matrix as tensor
         utils.print_metrics(macro, weighted, confusion)
+        # keep track of precision and confusion matrix
         macro_precision.append(macro)
         weighted_precision.append(weighted)
-        confusion_matrixes.append(confusion)
+        conf_flat.append(flat)
+        conf_normalized.append(normalized)
 
 
     if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs
@@ -119,8 +123,9 @@ for epoch in range(last_epoch, config['epochs']):
                     net, opt, scheduler, 
                     training_loss_values, validation_loss_values, 
                     macro_precision, weighted_precision,
-                    confusion_matrixes,
-                    config['batch_size'], 
+                    conf_flat,
+                    conf_normalized,
+                    config['batch_size'],
                     config['checkpoint_directory'], 
                     config['opt']
                 )

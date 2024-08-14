@@ -13,9 +13,44 @@ import loss
 from PIL import Image
 from torchmetrics.classification import MulticlassConfusionMatrix
 from prettytable import PrettyTable
-
+from converters import GID15Converter
+labels = {
+	0:"unlabeled",
+	1:"industrial land",
+	2:"urban residential",
+	3:"rural residential",
+	4:"traffic land",
+	5:"paddy field",
+	6:"irrigated cropland",
+	7:"dry cropland",
+	8:"garden plot",
+	9:"arbor forest",
+	10:"shrub land",
+	11:"natural grassland",
+	12:"artificial grassland",
+	13:"river",
+	14:"lake",
+	15:"pond",
+}
 def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False):
-	# returns (macro, weighted) IoU
+	"""
+	Function that evaluates model precision.
+	Parameters:
+		net (torch network): loaded network
+		Loader_validation (Loader)
+		device(torch device): device to use
+		batch_size (int)
+		show_progress (bool): True to show progress bar
+	Returns:
+		AmIoU (int): average mean intersection over union.
+			It's the mIoU averaged on the number of samples.
+		AwIoU (int): same as AmIoU but weighted considering the
+			support for each class.
+		flat confusion matrix (torchmetrics metric): un-normalized
+			confusion matrix. Usefull to compute evaluation metrics
+		normalized confusion matrix (torchmetrics metric): normalized 
+			confusion matrix. Usefull for plotting.
+	"""
 	macro = 0
 	weighted = 0    
 	net.eval()	
@@ -85,7 +120,7 @@ def validation_loss(net, Loader_validation, crit, device, bs, show_progress=Fals
 				pbar.close()
 	return loss_values
 
-def save_model(epoch, net, opt,scheduler, train_loss, val_loss, macro_precision, weighted_precision,confusion_matrixes,batch_size, checkpoint_dir, optimizer):
+def save_model(epoch, net, opt,scheduler, train_loss, val_loss, macro_precision, weighted_precision,conf_flat, conf_normalized,batch_size, checkpoint_dir, optimizer):
 	torch.save({
 		'epoch': epoch,
 		'model_state_dict': net.state_dict(),
@@ -96,9 +131,10 @@ def save_model(epoch, net, opt,scheduler, train_loss, val_loss, macro_precision,
 		'batch_size': batch_size,
 		'macro_precision': macro_precision, 
 		'weighted_precision': weighted_precision,
-		'confusion_matrixes': confusion_matrixes,
+		'conf_flat': conf_flat,
+		'conf_normalized': conf_normalized,
 		'optimizer': optimizer,
-		}, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
+	}, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
 	 
 
 class RandomFlip:
@@ -230,7 +266,7 @@ def load_device(config):
 	print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
 	return device
 
-def load_checkpoint(config, net=None):
+def load_checkpoint(config, net=None, load_confusion=False):
 	if  'load_checkpoint' in config.keys():
 	# Load model checkpoint (to resume training)    
 		checkpoint = torch.load(config['load_checkpoint'])
@@ -239,10 +275,12 @@ def load_checkpoint(config, net=None):
 		TL = checkpoint['training_loss_values']
 		VL = checkpoint['validation_loss_values']        
 		mIoU = checkpoint['macro_precision']
-		wIoU = checkpoint['weighted_precision']
-		print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)        
-		print(f"mIoU: {mIoU}")
-		print(f"wIoU: {wIoU}")
+		wIoU = checkpoint['weighted_precision']		
+		print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)
+		if load_confusion:
+			flat = checkpoint['conf_flat']
+			normalized = checkpoint['conf_normalized']		
+			return TL, VL, mIoU, wIoU, flat, normalized
 		return TL, VL, mIoU, wIoU
 	
 
@@ -334,6 +372,7 @@ def accuracy(confusion):
 
 def print_metrics(macro, weighted, confusion):
 	t = PrettyTable(['Metric', 'Score'])
+	t.align = "r"
 	t.add_row(['AmIoU', macro])
 	t.add_row(['AwIoU', weighted])
 	t.add_row(['mIoU', IoU(confusion, mean=True, exclude_zeros=True)])
@@ -342,4 +381,65 @@ def print_metrics(macro, weighted, confusion):
 	t.add_row(['Dice', F1(confusion, mean=True, exclude_zeros=True)])
 	t.add_row(['OA', accuracy(confusion)])
 	print(t)
-	print(f"Per class IoU: {IoU(confusion, mean=False, exclude_zeros=False).tolist()}", flush=True)
+	iou = PrettyTable(['Class', 'IoU'])
+	iou.align = "r"
+	values = IoU(confusion, mean=False, exclude_zeros=False).tolist()
+	for i,score in enumerate(values):
+		iou.add_row([labels[i], score])
+	print(iou, flush=True)
+
+def display_configs(configs):
+	t = PrettyTable(['Name', 'Value'])
+	t.align = "r"
+	for key,value in configs.items():
+		t.add_row([key, value])
+	print(t, flush=True)
+
+
+def plot_confusion(normalized, path=None):
+	fig_, ax_ = normalized.plot(labels = labels.values())
+	fig_.set_size_inches(18.5, 10.5)
+	if path == None:
+		plt.show()
+	else:
+		plt.savefig(path)
+
+def plot_priors(confusion, sorted=True, path=None):
+	c = GID15Converter()	
+	label_to_color = {v: k for k, v in c.color_to_label.items()}
+	support = torch.sum(confusion, dim=1)
+	totals = support.tolist()
+	tot = torch.sum(support).item()
+	support = [(index, val.item()/tot) for index, val in enumerate(support)]
+	if sorted:
+		support.sort(key=lambda a: a[1])
+		totals.sort()
+	fig, ax = plt.subplots()
+	fig.set_size_inches(18.5, 10.5)    
+	y_pos = np.arange(len(support))
+	colors = [(label_to_color[x[0]][0]/255, label_to_color[x[0]][1]/255, label_to_color[x[0]][2]/255) for x in support]
+	ax.barh(y_pos, [x[1] for x in support], align='center', color=colors)
+	ax.set_yticks(y_pos, labels=[labels[i[0]] for i in support])
+	ax.set_xlabel('Class prior')
+	ax.set_title('Pixels per class')
+	ax.spines['right'].set_visible(False)
+	ax.spines['top'].set_visible(False)
+	rects = ax.patches	
+	for rect, label in zip(rects, totals):
+    # Get X and Y placement of label from rect
+		x_value = rect.get_width()
+		y_value = rect.get_y() + rect.get_height() / 2		
+		space = 3
+		label = '{:,.2f}M'.format(label/1e6)
+		plt.annotate(
+			label,                      
+			(x_value, y_value),         
+			xytext=(space, 0),          
+			textcoords='offset points', 
+			va='center',                
+			ha='left',                  
+			color = 'black')  
+	if path == None:
+		plt.show()
+	else:
+		plt.savefig(path,bbox_inches='tight',dpi=100)

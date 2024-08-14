@@ -1,13 +1,10 @@
 import os
 from torch.utils.data import Dataset
-from torchvision.transforms import ToTensor
 from PIL import Image
 from torchvision import tv_tensors
 import torchvision.transforms as v2
-from torchvision.transforms.functional import center_crop
 from pathlib import Path
 import torch
-import converters
 import random
 import matplotlib.pyplot as plt
 
@@ -266,3 +263,12 @@ class Loader():
 
 	def __len__(self):        
 		return len(self.chunks)
+	
+	def specify(self, targets):
+		"""
+		Function used to reduce the validation set to the specified indexes (targets)
+		Parameters:
+			targets (list of indexes)
+		"""
+		self.idxs = [self.idxs[i] for i in targets]
+		self.__generate_chunks()

@@ -1,0 +1,9 @@
+net: Unetv2
+load_checkpoint: D:\weights\checkpoint8
+dataset: D:\Datasets\GID15\gid-15\GID\Validation
+num_classes: 15
+patch_size: 224
+device: gpu
+verbose: True
+confusion_matrix: 'test.png'
+priors: 'priors.png'

@@ -8,9 +8,9 @@ epochs: 40
 patch_size: 224
 chunk_size: 5
 freq: 1
+precision_evaluation_freq: 1
 verbose: True
 batch_size: 4
-precision_evaluation_freq: 1
 net: Unetv2
 opt: SGD1
 loss: CEL
