@@ -11,10 +11,13 @@ inFile = sys.argv[1]
 
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
-print("LOADED CONFIGURATIONS:")
-print(config)
+utils.display_configs(config)
 Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
 Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
+
+# Loader_train.specify([0]) # debug, train on 1 image only
+# Loader_validation.specify([0]) # debug, validate on 1 image only
+
 device = utils.load_device(config)
 
 t = PrettyTable(['Name', 'Value'])
@@ -27,8 +30,8 @@ except:
 
 t.add_row(['Patch size',Loader_train.patch_size])
 t.add_row(['Tpe',Loader_train.tpi])
-t.add_row(['Training patches',len(Loader_train.images)*Loader_train.tpi])
-t.add_row(['Validation patches', len(Loader_validation.images)*Loader_validation.tpi])
+t.add_row(['Training patches',len(Loader_train.idxs)*Loader_train.tpi])
+t.add_row(['Validation patches', len(Loader_validation.idxs)*Loader_validation.tpi])
 print(t, flush=True)
 
 try:
@@ -44,12 +47,12 @@ except:
     exit(0)
 
 
-training_loss_values = []
-validation_loss_values = []
-macro_precision = []
-weighted_precision = []
-conf_flat = []
-conf_normalized = []
+training_loss_values=   [] # store every training loss value
+validation_loss_values= [] # store every validation loss value
+macro_precision=        [] # store AmIoU after each epoch
+weighted_precision=     [] # store AwIoU after each epoch
+conf_flat=              [] # store unnormalized confusion matrix after each epoch
+conf_normalized=        [] # store normalized confusion matrix after each epoch
 
 if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    

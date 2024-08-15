@@ -3,10 +3,10 @@ validation: D:\Datasets\GID15_test\Validation
 test: D:\Datasets\GID15_test\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
-load_checkpoint: D:\weights\checkpoint8
-epochs: 40
+#load_checkpoint: D:\weights\checkpoint8
+epochs: 1
 patch_size: 224
-chunk_size: 5
+chunk_size: 1
 freq: 1
 precision_evaluation_freq: 1
 verbose: True

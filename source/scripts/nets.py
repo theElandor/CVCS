@@ -10,7 +10,8 @@ import torch.nn as nn
 import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel
-from torchvision.models.segmentation import deeplabv3_resnet101
+from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large
+import torchvision
 
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
@@ -501,3 +502,25 @@ class DeepLabv3Resnet101(nn.Module):
 		for item in checkpoint_state_dict:
 			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
 		self.model.load_state_dict(checkpoint_state_dict_mod)
+
+class DeepLabV3MobileNet(nn.Module):
+	def __init__(self, num_classes, pretrained=True):
+		super(DeepLabV3MobileNet, self).__init__()		
+		self.requires_context = False
+		self.wrapper = True
+		self.num_classes = num_classes
+		if pretrained:
+			self.model = deeplabv3_mobilenet_v3_large( weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)
+			in_channels = self.model.classifier[4].in_channels
+			self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+		else:
+			self.model = deeplabv3_mobilenet_v3_large(self.num_classes)
+	def forward(self, x: torch.Tensor, context=None):
+		d = self.model(x)
+		return d['out']
+	def custom_load(self, checkpoint):
+		checkpoint_state_dict_mod = {}
+		checkpoint_state_dict = checkpoint['model_state_dict']
+		for item in checkpoint_state_dict:
+			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+		self.model.load_state_dict(checkpoint_state_dict_mod)	
