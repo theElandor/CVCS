@@ -54,7 +54,10 @@ conf_normalized = []
 if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
     checkpoint = torch.load(config['load_checkpoint'])
-    net.load_state_dict(checkpoint['model_state_dict'])
+    if net.wrapper:
+        net.custom_load(checkpoint)
+    else:
+        net.load_state_dict(checkpoint['model_state_dict'])    
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
     scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
     last_epoch = checkpoint['epoch']+1

@@ -190,6 +190,8 @@ def load_network(config, device):
 		return nets.Urnetv2(classes+1).to(device)
 	elif netname == 'FUnet':
 		return nets.FUnet(classes+1).to(device)
+	elif netname == 'Resnet101':
+		return nets.DeepLabv3Resnet101(classes+1).to(device)
 	else:
 		print("Invalid network name.")
 		raise Exception
@@ -266,12 +268,14 @@ def load_device(config):
 	print("Training network on {}".format(torch.cuda.get_device_name(device=device)))
 	return device
 
-def load_checkpoint(config, net=None, load_confusion=False):
+def load_checkpoint(config, net, load_confusion=False):
 	if  'load_checkpoint' in config.keys():
 	# Load model checkpoint (to resume training)    
 		checkpoint = torch.load(config['load_checkpoint'])
-		if net:
-			net.load_state_dict(checkpoint['model_state_dict'])                
+		if net.wrapper:
+			net.custom_load(checkpoint)			
+		else:
+			net.load_state_dict(checkpoint['model_state_dict'])
 		TL = checkpoint['training_loss_values']
 		VL = checkpoint['validation_loss_values']        
 		mIoU = checkpoint['macro_precision']
@@ -279,7 +283,7 @@ def load_checkpoint(config, net=None, load_confusion=False):
 		print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)
 		if load_confusion:
 			flat = checkpoint['conf_flat']
-			normalized = checkpoint['conf_normalized']		
+			normalized = checkpoint['conf_normalized']
 			return TL, VL, mIoU, wIoU, flat, normalized
 		return TL, VL, mIoU, wIoU
 	

@@ -47,6 +47,7 @@
   Unetv2: Unet with Transpose Convolution in decoding path
   Unet_torch: unet from torch repository (heavy, 300M parameters(?))
   FUnet: Fusion network, Unet with double path (testing)
+  Resnet101: Resnet101 trained with DeepLabv3
 
 + opt: <str>
   Available setups:
