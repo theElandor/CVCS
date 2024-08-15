@@ -6,28 +6,33 @@ import yaml
 import sys
 import matplotlib.pyplot as plt
 import dataset
+from prettytable import PrettyTable
 inFile = sys.argv[1]
 
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
-print("LOADED CONFIGURATIONS:")
-print(config)
-#train_dataset, validation_dataset, test_dataset = utils.load_dataset(config)
+utils.display_configs(config)
 Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
 Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
+
+# Loader_train.specify([0]) # debug, train on 1 image only
+# Loader_validation.specify([0]) # debug, validate on 1 image only
+
 device = utils.load_device(config)
 
+t = PrettyTable(['Name', 'Value'])
 try:
     net = utils.load_network(config, device)
-    print(f"number of parameters: {utils.count_params(net)}")
+    t.add_row(['parameters', utils.count_params(net)])    
 except:
     print("Error in loading network.")
     exit(0)
 
-print(f"Patch size: {Loader_train.patch_size}")
-print(f"Tiles(patches) per image: {Loader_train.tpi}")
-print(f"Training patches: {len(Loader_train.images)*Loader_train.tpi}")
-print(f"Validation patches: {len(Loader_validation.images)*Loader_validation.tpi}")
+t.add_row(['Patch size',Loader_train.patch_size])
+t.add_row(['Tpe',Loader_train.tpi])
+t.add_row(['Training patches',len(Loader_train.idxs)*Loader_train.tpi])
+t.add_row(['Validation patches', len(Loader_validation.idxs)*Loader_validation.tpi])
+print(t, flush=True)
 
 try:
     crit = utils.load_loss(config, device)
@@ -42,15 +47,20 @@ except:
     exit(0)
 
 
-training_loss_values = []
-validation_loss_values = []
-macro_precision = []
-weighted_precision = []
+training_loss_values=   [] # store every training loss value
+validation_loss_values= [] # store every validation loss value
+macro_precision=        [] # store AmIoU after each epoch
+weighted_precision=     [] # store AwIoU after each epoch
+conf_flat=              [] # store unnormalized confusion matrix after each epoch
+conf_normalized=        [] # store normalized confusion matrix after each epoch
 
 if  'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
     checkpoint = torch.load(config['load_checkpoint'])
-    net.load_state_dict(checkpoint['model_state_dict'])
+    if net.wrapper:
+        net.custom_load(checkpoint)
+    else:
+        net.load_state_dict(checkpoint['model_state_dict'])    
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
     scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
     last_epoch = checkpoint['epoch']+1
@@ -59,6 +69,12 @@ if  'load_checkpoint' in config.keys():
     config['batch_size'] = checkpoint['batch_size']
     macro_precision = checkpoint['macro_precision']
     weighted_precision = checkpoint['weighted_precision']
+    # try to load confusion matrix, usefull for retrocompatibility for old models.
+    try:
+        conf_flat = checkpoint['conf_flat']
+        conf_normalized = checkpoint['conf_normalized']
+    except:
+        print("Cannot find confusion matrix in specified checkpoint.")
     print("Loaded checkpoint {}".format(config['load_checkpoint']), flush=True)
 else:
     last_epoch = 0
@@ -68,14 +84,14 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
-    Loader_train.shuffle()
-    for c in range(len(Loader_train)):
+    Loader_train.shuffle() # shuffle full-sized images
+    for c in range(len(Loader_train)):        
         dataset = Loader_train.get_iterable_chunk(c)
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
             pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
-        for batch_index, (image, index_mask, _, context) in enumerate(dl):            
+        for batch_index, (image, index_mask, _, context) in enumerate(dl):
             image, mask = image.to(device), index_mask.to(device)
             # avoid loading context to GPU if not needed
             if net.requires_context:
@@ -97,17 +113,25 @@ for epoch in range(last_epoch, config['epochs']):
 
     if (epoch+1) % config['precision_evaluation_freq'] == 0:
         print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
-        #precision_loader = utils.load_loader(validation_dataset, config, False, batch_size=1)
 
-        macro, weighted = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
-        print(f"mIou: {macro}")
-        print(f"weighted mIoU: {weighted}", flush=True)
+        macro, weighted, flat, normalized = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
+        confusion = flat.compute() # get confusion matrix as tensor
+        utils.print_metrics(macro, weighted, confusion)
+        # keep track of precision and confusion matrix
         macro_precision.append(macro)
         weighted_precision.append(weighted)
+        conf_flat.append(flat)
+        conf_normalized.append(normalized)
 
-    if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs            
-        utils.save_model(epoch, net, opt, scheduler, training_loss_values, validation_loss_values, macro_precision, weighted_precision, 
-                    config['batch_size'], 
+
+    if (epoch+1) % config['freq'] == 0: # save checkpoint every freq epochs
+        utils.save_model(epoch, 
+                    net, opt, scheduler, 
+                    training_loss_values, validation_loss_values, 
+                    macro_precision, weighted_precision,
+                    conf_flat,
+                    conf_normalized,
+                    config['batch_size'],
                     config['checkpoint_directory'], 
                     config['opt']
                 )

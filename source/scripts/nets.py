@@ -10,11 +10,15 @@ import torch.nn as nn
 import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel
+from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large
+import torchvision
+
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
 	def __init__(self, num_classes):
 		super(Urnet, self).__init__()		
 		self.requires_context = False
+		self.wrapper = False
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -95,6 +99,7 @@ class Swin(nn.Module): # swinT + unet head
 	def __init__(self, embed_dim, size, num_classes, device):
 		super(Swin, self).__init__()	
 		self.requires_context = False
+		self.wrapper = False
 		self.c = embed_dim
 		self.h = size
 		self.w = size		
@@ -147,6 +152,7 @@ class Fusion(nn.Module): # STILL TESTING
 	def __init__(self, num_classes, device):
 		super(Fusion, self).__init__()
 		self.requires_context = True
+		self.wrapper = False
 		self.device = device		
 		model_name = "microsoft/swin-base-patch4-window7-224"
 		self.swin = AutoModel.from_pretrained(model_name)
@@ -252,6 +258,7 @@ class UnetTorch(nn.Module):
 	def __init__(self, device, in_channels=3, out_channels=16, init_features=224, pretrained=False):
 		super(UnetTorch, self).__init__()		
 		self.model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet', in_channels=in_channels, out_channels=out_channels, init_features=init_features, pretrained=pretrained).to(device)
+		self.wrapper = True
 		self.requires_context = False
 	def forward(self, x: torch.Tensor, context=None):
 		return self.model(x)
@@ -261,6 +268,7 @@ class Urnetv2(nn.Module):
 	def __init__(self, num_classes):
 		super(Urnetv2, self).__init__()		
 		self.requires_context = False
+		self.wrapper = False
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -342,6 +350,7 @@ class FUnet(nn.Module):
 	def __init__(self, num_classes):
 		super(FUnet, self).__init__()		
 		self.requires_context = True
+		self.wrapper = False
 		# -----------------PATCH ENCODER-----------------------
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -471,3 +480,47 @@ class FUnet(nn.Module):
 		self.embedding_fusion()
 		segmap = self.decode()
 		return segmap
+
+class DeepLabv3Resnet101(nn.Module):
+	def __init__(self, num_classes, pretrained=True):
+		super(DeepLabv3Resnet101, self).__init__()		
+		self.requires_context = False
+		self.wrapper = True
+		self.num_classes = num_classes
+		if pretrained:
+			self.model = deeplabv3_resnet101(weights='COCO_WITH_VOC_LABELS_V1')
+			in_channels = self.model.classifier[4].in_channels
+			self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+		else:
+			self.model = deeplabv3_resnet101(num_classes=self.num_classes)
+	def forward(self, x: torch.Tensor, context=None):
+		d = self.model(x)
+		return d['out']
+	def custom_load(self, checkpoint):
+		checkpoint_state_dict_mod = {}
+		checkpoint_state_dict = checkpoint['model_state_dict']
+		for item in checkpoint_state_dict:
+			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+		self.model.load_state_dict(checkpoint_state_dict_mod)
+
+class DeepLabV3MobileNet(nn.Module):
+	def __init__(self, num_classes, pretrained=True):
+		super(DeepLabV3MobileNet, self).__init__()		
+		self.requires_context = False
+		self.wrapper = True
+		self.num_classes = num_classes
+		if pretrained:
+			self.model = deeplabv3_mobilenet_v3_large( weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)
+			in_channels = self.model.classifier[4].in_channels
+			self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+		else:
+			self.model = deeplabv3_mobilenet_v3_large(self.num_classes)
+	def forward(self, x: torch.Tensor, context=None):
+		d = self.model(x)
+		return d['out']
+	def custom_load(self, checkpoint):
+		checkpoint_state_dict_mod = {}
+		checkpoint_state_dict = checkpoint['model_state_dict']
+		for item in checkpoint_state_dict:
+			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+		self.model.load_state_dict(checkpoint_state_dict_mod)	

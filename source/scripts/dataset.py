@@ -1,13 +1,10 @@
 import os
 from torch.utils.data import Dataset
-from torchvision.transforms import ToTensor
 from PIL import Image
 from torchvision import tv_tensors
 import torchvision.transforms as v2
-from torchvision.transforms.functional import center_crop
 from pathlib import Path
 import torch
-import converters
 import random
 import matplotlib.pyplot as plt
 
@@ -116,16 +113,17 @@ class GID15(Dataset):
 	
 
 class IterableChunk(torch.utils.data.IterableDataset):
-	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224):
+	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224,iT=None, mT=None):		
 		super(IterableChunk).__init__()
 		self.indexdir = indexdir
 		self.maskdir = maskdir
-		self.p = patch_size
-
+		self.p = patch_size		
+		self.iT = iT
+		self.mT = mT		
 		self.image_shape = image_shape
 		self.tpi = tpi
+		self.random_shift = random_shift
 
-		self.random_shift = random_shift		
 		self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
 		self.to_load = [images[idx] for idx in chunk]
 		self.chunk_size = len(chunk)
@@ -161,6 +159,17 @@ class IterableChunk(torch.utils.data.IterableDataset):
 			c_tlx = tlx-self.p
 			h = w = self.p*3
 			context = self.resize(v2.functional.crop(self.images[target_image], c_tly, c_tlx, h, w))            
+			# apply transformations:
+			#1) Apply iT only to Image
+			if self.iT != None:
+				patch = self.iT(patch)
+			#2) Apply mT to both Image and Mask
+			if self.mT != None:
+				concatenation = torch.concat((patch, index_mask, color_mask), dim=0)
+				concatenation = self.mT(concatenation)
+				patch = concatenation[:3, :,:]
+				index_mask = concatenation[3, :, :]
+				color_mask = concatenation[4:, :, :]				
 			# append everything to list
 			self.patches.append((patch, index_mask, color_mask, context))
 			
@@ -190,11 +199,26 @@ class IterableChunk(torch.utils.data.IterableDataset):
 
 	
 class Loader():
-	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224):
+	"""
+	Main class to load GID15 dataset.
+	Parameters:
+		root (string): root of the dataset
+		chunk size (int): number of full size image to load at the same time
+		random_shift (bool): whether or not to apply the random shift
+		patch_size (int)
+		image_transforms (torchvision.transforms.v2.transform): transforms to apply on the image only
+			(like color jitter, gaussian blur, ecc...)
+		mask_transforms (torchvision.transforms.v2.transform): transforms to apply on BOTH the image and
+			the mask (actually index mask and color mask).		
+	"""
+	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224, image_transforms=None, mask_transforms=None):		
 		self.root = root
 		self.patch_size = patch_size
 		self.chunk_size = chunk_size
 		self.random_shift = random_shift
+		self.image_transforms = image_transforms
+		self.mask_transforms = mask_transforms
+
 		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
 		self.indexdir = os.path.join(root, "Annotation__index")
 		self.maskdir = os.path.join(root, "Annotation__color")
@@ -243,7 +267,9 @@ class Loader():
 							image_shape = self.image_shape,
 							tpi = self.tpi,
 							random_shift=self.random_shift,
-							patch_size=self.patch_size,)
+							patch_size=self.patch_size,
+							iT = self.image_transforms,
+							mT = self.mask_transforms)
 
 	def get_chunk(self,idx):
 		"""
@@ -266,3 +292,12 @@ class Loader():
 
 	def __len__(self):        
 		return len(self.chunks)
+	
+	def specify(self, targets):
+		"""
+		Function used to reduce the validation set to the specified indexes (targets)
+		Parameters:
+			targets (list of indexes)
+		"""
+		self.idxs = [self.idxs[i] for i in targets]
+		self.__generate_chunks()

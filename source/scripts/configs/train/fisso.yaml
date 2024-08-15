@@ -3,14 +3,15 @@ validation: D:\Datasets\GID15_test\Validation
 test: D:\Datasets\GID15_test\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
-epochs: 10
+#load_checkpoint: D:\weights\checkpoint8
+epochs: 1
 patch_size: 224
-chunk_size: 5
+chunk_size: 1
 freq: 1
+precision_evaluation_freq: 1
 verbose: True
 batch_size: 4
-precision_evaluation_freq: 1
-net: FUnet
+net: Unetv2
 opt: SGD1
 loss: CEL
 num_classes: 15
