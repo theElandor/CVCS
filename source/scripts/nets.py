@@ -528,7 +528,7 @@ class DeepLabV3MobileNet(nn.Module):
 
 class SegformerMod(nn.Module):
 	def __init__(self, num_classes, pretrained=True):
-		super(self).__init__()
+		super(SegformerMod, self).__init__()
 		self.requires_context = False
 		self.wrapper = False
 		self.num_classes = num_classes
