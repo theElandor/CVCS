@@ -527,7 +527,7 @@ class DeepLabV3MobileNet(nn.Module):
 		self.model.load_state_dict(checkpoint_state_dict_mod)
 
 class SegformerMod(nn.Module):
-	def __init__(self, num_classes, pretrained=True):
+	def __init__(self, input_size, num_classes, pretrained=True):
 		super(SegformerMod, self).__init__()
 		self.requires_context = False
 		self.wrapper = False
@@ -547,7 +547,10 @@ class SegformerMod(nn.Module):
 			v2.Normalize(mean=[94.68, 98.72, 91.60], std=[58.74, 56.45, 55.23])
 		])
 
+		self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
+
 	def forward(self, x: torch.Tensor, context=None):
 		x = self.preprocessor(x)
 		out = self.segformer(x)
-		return out.logits
+		res = self.upsampler(out.logits) 
+		return res
