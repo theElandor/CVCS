@@ -527,7 +527,7 @@ class DeepLabV3MobileNet(nn.Module):
 		self.model.load_state_dict(checkpoint_state_dict_mod)
 
 class SegformerMod(nn.Module):
-	def __init__(self, input_size, num_classes, pretrained=True):
+	def __init__(self, num_classes, pretrained=True):
 		super(SegformerMod, self).__init__()
 		self.requires_context = False
 		self.wrapper = False
