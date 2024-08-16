@@ -4,7 +4,7 @@ from tqdm import tqdm
 import utils
 import yaml
 import sys
-import matplotlib.pyplot as plt
+import random
 import dataset
 from prettytable import PrettyTable
 inFile = sys.argv[1]
@@ -15,8 +15,9 @@ utils.display_configs(config)
 Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
 Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
 
-# Loader_train.specify([0]) # debug, train on 1 image only
-# Loader_validation.specify([0]) # debug, validate on 1 image only
+if config.get('debug'):
+    Loader_train.specify([0,1]) # debug, train on 2 images only
+    Loader_validation.specify([0]) # debug, validate on 1 image only
 
 device = utils.load_device(config)
 
@@ -81,12 +82,16 @@ else:
 
 assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid directory to save checkpoints in."
 
-
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
     Loader_train.shuffle() # shuffle full-sized images
-    for c in range(len(Loader_train)):        
-        dataset = Loader_train.get_iterable_chunk(c)
+    for c in range(len(Loader_train)):
+        # if random_tps is specified, then this chunk will contain patches of random size
+        if 'random_tps' in config.keys():
+            p = random.choice(config['random_tps'])
+        else:
+            p = None # keep default patch size
+        dataset = Loader_train.get_iterable_chunk(c, p)
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
             pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
@@ -97,7 +102,7 @@ for epoch in range(last_epoch, config['epochs']):
             if net.requires_context:
                 context = context.to(device)            
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask.squeeze().type(torch.long))
+            loss = crit(mask_pred, mask.squeeze(0).type(torch.long))
             training_loss_values.append(loss.item())
             opt.zero_grad()
             loss.backward()

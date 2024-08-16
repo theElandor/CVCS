@@ -67,7 +67,7 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 				x, y = x.to(device), y.to(device)
 				if net.requires_context:
 					context = context.to(device)
-				y_pred = net(x.type(torch.float32), context.type(torch.float32))
+				y_pred = net(x.type(torch.float32), context.type(torch.float32))				
 				y_pred = y_pred.squeeze().cpu()
 				_,pred_mask = torch.max(y_pred, dim=0)
 				
@@ -107,12 +107,12 @@ def validation_loss(net, Loader_validation, crit, device, bs, show_progress=Fals
 			dl = torch.utils.data.DataLoader(dataset, batch_size=bs)
 			if show_progress:
 				pbar = tqdm(total=len(dataset.chunk_crops)//bs, desc=f'Chunk {c+1}')
-			for batch_index, (image, index_mask, _, context) in enumerate(dl):
+			for image, index_mask, _, context in enumerate(dl):
 				image, mask = image.to(device), index_mask.to(device)
 				if net.requires_context:
 					context = context.to(device)
 				mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-				loss = crit(mask_pred, mask.squeeze().type(torch.long))
+				loss = crit(mask_pred, mask.squeeze(0).type(torch.long))
 				loss_values.append(loss.item())
 				if show_progress:
 					pbar.update(1)                

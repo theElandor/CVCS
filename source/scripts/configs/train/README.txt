@@ -65,4 +65,8 @@
 
 + patch_size: <int>
   Size of patch cropped from original sized image.
-  Available patch sizes are 224, 256, 512
+  This patch size will be used in training, validation and evaluation loops
+
++ random_tps: <list of int>
+  Random patch size to pick from during training loop.
+  Might slow down training.

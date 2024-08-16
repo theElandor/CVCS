@@ -211,7 +211,7 @@ class Loader():
 		mask_transforms (torchvision.transforms.v2.transform): transforms to apply on BOTH the image and
 			the mask (actually index mask and color mask).		
 	"""
-	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224, image_transforms=None, mask_transforms=None):		
+	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224, image_transforms=None, mask_transforms=None):
 		self.root = root
 		self.patch_size = patch_size
 		self.chunk_size = chunk_size
@@ -242,32 +242,38 @@ class Loader():
 		sample = tv_tensors.Image(Image.open(images[0]))		
 		return list(sample.shape)[1:]
 	
-	def __get_tpi(self):
+	def __get_tpi(self, p=None):
 		"""
 		Based on image shape and patch size (patch_size), computes the tiles per image (tpi)
 		"""
+		if p == None:
+			p = self.patch_size			
 		h,w = self.image_shape
-		return (h//self.patch_size)*(w//self.patch_size)
+		return (h//p)*(w//p)
 	
 	def shuffle(self):
 		random.shuffle(self.idxs)
 		self.__generate_chunks()
 
-	def get_iterable_chunk(self,idx):
+	def get_iterable_chunk(self,idx, p=None):
 		"""
 		Parameters:
 			idx (int): index of chunk that you need to pre-load in memory.
 		Returns:
 			(IterableChunk): iterator on the specified chunk with shuffled patches.
 		"""
-		return IterableChunk(self.chunks[idx], 
+		if p == None or p == self.patch_size:
+			p = self.patch_size
+		else: # if p is different from default			
+			print(f"Selected chunk size ({p}) is different from default=224. Total number of training patches is now variable.")
+		return IterableChunk(self.chunks[idx],
 							self.images, 
 							self.indexdir, 
 							self.maskdir, 
 							image_shape = self.image_shape,
-							tpi = self.tpi,
+							tpi = self.__get_tpi(p),
 							random_shift=self.random_shift,
-							patch_size=self.patch_size,
+							patch_size=p,
 							iT = self.image_transforms,
 							mT = self.mask_transforms)
 

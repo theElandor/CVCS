@@ -13,8 +13,7 @@ inFile = sys.argv[1]
 
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
-print("LOADED CONFIGURATIONS:")
-print(config)
+utils.display_configs(config)
 
 device = utils.load_device(config)
 
