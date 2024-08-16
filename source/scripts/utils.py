@@ -194,6 +194,8 @@ def load_network(config, device):
 		return nets.DeepLabv3Resnet101(classes+1).to(device)
 	elif netname == 'MobileNet':
 		return nets.DeepLabV3MobileNet(classes+1).to(device)
+	elif netname == 'SegformerMod':
+		return nets.SegformerMod(classes+1).to(device)
 	else:
 		print("Invalid network name.")
 		raise Exception
