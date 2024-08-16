@@ -1,5 +1,5 @@
-net: Unetv2
-load_checkpoint: D:\weights\checkpoint8
+net: Resnet101
+load_checkpoint: D:\weights\checkpoint12
 dataset: D:\Datasets\GID15\gid-15\GID\Validation
 num_classes: 15
 patch_size: 224

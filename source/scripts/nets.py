@@ -453,8 +453,8 @@ class FUnet(nn.Module):
 		return self.x5_c
 	
 	def embedding_fusion(self):
-		self.concat_embeddings = torch.concat((self.x5, self.x5_c), 1)		
-		self.fused_features = self.fusion(self.concat_embeddings)		
+		self.concat_embeddings = torch.concat((self.x5, self.x5_c), 1)
+		self.fused_features = self.fusion(self.concat_embeddings)
 
 	def decode(self):
 		y1 = self.upscale1(self.fused_features)
@@ -523,4 +523,4 @@ class DeepLabV3MobileNet(nn.Module):
 		checkpoint_state_dict = checkpoint['model_state_dict']
 		for item in checkpoint_state_dict:
 			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
-		self.model.load_state_dict(checkpoint_state_dict_mod)	
+		self.model.load_state_dict(checkpoint_state_dict_mod)
