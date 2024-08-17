@@ -4,7 +4,7 @@ test: D:\Datasets\GID15_test\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
 #load_checkpoint: D:\weights\checkpoint8
-net: Unetv2
+net: SegformerMod
 epochs: 1
 chunk_size: 2
 patch_size: 224
@@ -16,6 +16,3 @@ precision_evaluation_freq: 1
 opt: SGD1
 loss: CEL
 num_classes: 15
-
-#random_tps: [256, 512]
-#debug: True

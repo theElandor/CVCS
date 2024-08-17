@@ -163,7 +163,10 @@ def inference(net, dataset, indexes, device, converter, mask_only=False):
 			image,_, mask = dataset[index]
 			image, mask = image.to(device), mask.to(device)
 			output = net(image.unsqueeze(0).type(torch.float32))
-			pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)         
+			if net.returns_logits:
+				pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)
+			else:
+				pred_index = output
 			if not mask_only:
 				f, axarr = plt.subplots(1,3)
 				axarr[0].imshow(image.permute(1,2,0).cpu())
@@ -204,6 +207,8 @@ def load_network(config, device):
 		except:
 			print("Some error occured when loading ensemble!")
 			raise Exception
+	elif netname == 'SegformerMod':
+		return nets.SegformerMod(classes).to(device)
 	else:
 		print("Invalid network name.")
 		raise Exception

@@ -2,9 +2,10 @@ from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, conv
 import torch
 import torch.nn as nn
 import torchvision
+import torchvision.transforms.v2 as v2
 import torchvision.transforms.functional as functional
 import math
-from transformers import AutoModel, AutoImageProcessor
+from transformers import AutoModel, AutoImageProcessor, SegformerForSemanticSegmentation, SegformerConfig
 from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer
 from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large
 
@@ -30,9 +31,6 @@ and compatible with the codebase:
 	the forward pass. Usually it's not the case, so you can set this to 
 	False in most networks.
 """
-
-
-
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
 	def __init__(self, num_classes):
@@ -554,4 +552,35 @@ class DeepLabV3MobileNet(nn.Module):
 		checkpoint_state_dict = checkpoint['model_state_dict']
 		for item in checkpoint_state_dict:
 			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
-		self.model.load_state_dict(checkpoint_state_dict_mod)
+		self.model.load_state_dict(checkpoint_state_dict_mod)		
+
+class SegformerMod(nn.Module):
+	def __init__(self, num_classes, pretrained=True):
+		super(SegformerMod, self).__init__()
+		self.requires_context = False
+		self.wrapper = False
+		self.returns_logits = True
+
+		self.num_classes = num_classes
+		# load pretrained
+		if pretrained:
+			self.segformer = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
+		else:
+			self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
+		
+		# change decoder head to output num_classes channels
+		mlp_in_channels = self.segformer.decode_head.classifier.in_channels
+		self.segformer.decode_head.classifier = nn.Conv2d(mlp_in_channels, num_classes, kernel_size=(1,1), stride=(1,1))
+
+		self.preprocessor = v2.Compose([
+			v2.ToDtype(torch.float32),
+			v2.Normalize(mean=[94.68, 98.72, 91.60], std=[58.74, 56.45, 55.23])
+		])
+
+		self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
+
+	def forward(self, x: torch.Tensor, context=None):
+		x = self.preprocessor(x)
+		out = self.segformer(x)
+		res = self.upsampler(out.logits) 
+		return res
