@@ -1,17 +1,37 @@
 from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, conv3x3
 import torch
 import torch.nn as nn
+import torchvision
 import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel, AutoImageProcessor
 from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer
-import torch
-import torch.nn as nn
-import torchvision.transforms.functional as functional
-import math
-from transformers import AutoModel
 from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large
-import torchvision
+
+"""
+To write a new network make sure that your class is initialized
+with the following attributes to make it trainable
+and compatible with the codebase:
+
++ self.requires_context <bool>:
+	set this to True if the network needs the context around the input
+	for the forward pass. This way the training script will move 
+	the context to gpu only if needed.
+
++ self.wrapper <bool>:
+	If set to true, the script that loads a checkpoint will call the
+	self.custom_load() method instead of trying to directly load weights.
+	The self.custom_load() method must load the model in the self.model
+	parameter, and the class just serves as a wrapper.
+	Look at DeepLabv3Resnet101 as an example.
+
++ self.returns_logits <bool>:
+	Set this to true if the model performs argmax on the logits inside
+	the forward pass. Usually it's not the case, so you can set this to 
+	False in most networks.
+"""
+
+
 
 class Urnet(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
@@ -19,6 +39,7 @@ class Urnet(nn.Module):
 		super(Urnet, self).__init__()		
 		self.requires_context = False
 		self.wrapper = False
+		self.returns_logits = True
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -100,9 +121,11 @@ class Swin(nn.Module): # swinT + unet head
 		super(Swin, self).__init__()	
 		self.requires_context = False
 		self.wrapper = False
+		self.returns_logits = True
+
 		self.c = embed_dim
 		self.h = size
-		self.w = size		
+		self.w = size
 		self.num_classes = num_classes        
 		self.device = device
 		if embed_dim == 96:             
@@ -153,6 +176,8 @@ class Fusion(nn.Module): # STILL TESTING
 		super(Fusion, self).__init__()
 		self.requires_context = True
 		self.wrapper = False
+		self.returns_logits = True
+
 		self.device = device		
 		model_name = "microsoft/swin-base-patch4-window7-224"
 		self.swin = AutoModel.from_pretrained(model_name)
@@ -260,6 +285,7 @@ class UnetTorch(nn.Module):
 		self.model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet', in_channels=in_channels, out_channels=out_channels, init_features=init_features, pretrained=pretrained).to(device)
 		self.wrapper = True
 		self.requires_context = False
+		self.returns_logits = True
 	def forward(self, x: torch.Tensor, context=None):
 		return self.model(x)
 
@@ -269,6 +295,7 @@ class Urnetv2(nn.Module):
 		super(Urnetv2, self).__init__()		
 		self.requires_context = False
 		self.wrapper = False
+		self.returns_logits = True
     	# encoding part of the Unet vanilla architecture
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -351,6 +378,7 @@ class FUnet(nn.Module):
 		super(FUnet, self).__init__()		
 		self.requires_context = True
 		self.wrapper = False
+		self.returns_logits = True
 		# -----------------PATCH ENCODER-----------------------
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
@@ -486,6 +514,7 @@ class DeepLabv3Resnet101(nn.Module):
 		super(DeepLabv3Resnet101, self).__init__()		
 		self.requires_context = False
 		self.wrapper = True
+		self.returns_logits = True
 		self.num_classes = num_classes
 		if pretrained:
 			self.model = deeplabv3_resnet101(weights='COCO_WITH_VOC_LABELS_V1')
@@ -508,6 +537,8 @@ class DeepLabV3MobileNet(nn.Module):
 		super(DeepLabV3MobileNet, self).__init__()		
 		self.requires_context = False
 		self.wrapper = True
+		self.returns_logits = True
+		
 		self.num_classes = num_classes
 		if pretrained:
 			self.model = deeplabv3_mobilenet_v3_large( weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)

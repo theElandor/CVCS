@@ -15,7 +15,8 @@ try:
 except:
     print("Error in loading network.")
     exit(0)
-utils.load_checkpoint(config, net)
+if 'load_checkpoint' in config:
+    utils.load_checkpoint(config, net)
 # chunk size of 1 for validation and no random shift
 loader = dataset.Loader(config['dataset'], 1, patch_size=config['patch_size'])
 if 'images' in config.keys():
