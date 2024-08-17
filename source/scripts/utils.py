@@ -14,6 +14,8 @@ from PIL import Image
 from torchmetrics.classification import MulticlassConfusionMatrix
 from prettytable import PrettyTable
 from converters import GID15Converter
+import yaml
+
 labels = {
 	0:"unlabeled",
 	1:"industrial land",
@@ -69,8 +71,10 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 					context = context.to(device)
 				y_pred = net(x.type(torch.float32), context.type(torch.float32))				
 				y_pred = y_pred.squeeze().cpu()
-				_,pred_mask = torch.max(y_pred, dim=0)
-				
+				if net.returns_logits:
+					_,pred_mask = torch.max(y_pred, dim=0)
+				else: # if model alredy performs argmax (ensemble)
+					pred_mask = y_pred
 				# update global tensor to compute overall mIoU
 				p = pred_mask.unsqueeze(0).type(torch.int64).reshape(1,-1)
 				t = y.squeeze(1).cpu().type(torch.int64).reshape(1,-1)
@@ -158,8 +162,11 @@ def inference(net, dataset, indexes, device, converter, mask_only=False):
 		for index in indexes:
 			image,_, mask = dataset[index]
 			image, mask = image.to(device), mask.to(device)
-			output = net(image.unsqueeze(0).type(torch.float32))            
-			pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)         
+			output = net(image.unsqueeze(0).type(torch.float32))
+			if net.returns_logits:
+				pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)
+			else:
+				pred_index = output
 			if not mask_only:
 				f, axarr = plt.subplots(1,3)
 				axarr[0].imshow(image.permute(1,2,0).cpu())
@@ -175,25 +182,33 @@ def inference(net, dataset, indexes, device, converter, mask_only=False):
 
 def load_network(config, device):
 	netname = config['net']
-	classes = config['num_classes']
+	classes = config['num_classes']+1
 	if netname == 'TSwin':
-		return nets.Swin(96,224,classes+1, device).to(device)
+		return nets.Swin(96,224,classes, device).to(device)
 	elif netname == 'BSwin':
-		return nets.Swin(128,224,classes+1, device).to(device)
+		return nets.Swin(128,224,classes, device).to(device)
 	elif netname == 'Unet':
-		return nets.Urnet(classes+1).to(device)
+		return nets.Urnet(classes).to(device)
 	elif netname == 'Fusion':
-		return nets.Fusion(classes+1, device).to(device)
+		return nets.Fusion(classes, device).to(device)
 	elif netname == 'Unet_torch':
 		return nets.UnetTorch(device)
 	elif netname == 'Unetv2':
-		return nets.Urnetv2(classes+1).to(device)
+		return nets.Urnetv2(classes).to(device)
 	elif netname == 'FUnet':
-		return nets.FUnet(classes+1).to(device)
+		return nets.FUnet(classes).to(device)
 	elif netname == 'Resnet101':
-		return nets.DeepLabv3Resnet101(classes+1).to(device)
+		return nets.DeepLabv3Resnet101(classes).to(device)
 	elif netname == 'MobileNet':
-		return nets.DeepLabV3MobileNet(classes+1).to(device)
+		return nets.DeepLabV3MobileNet(classes).to(device)
+	elif netname == 'Ensemble':
+		try:
+			return Ensemble(classes, device, config.get('ensemble_config'))
+		except:
+			print("Some error occured when loading ensemble!")
+			raise Exception
+	elif netname == 'SegformerMod':
+		return nets.SegformerMod(classes).to(device)
 	else:
 		print("Invalid network name.")
 		raise Exception
@@ -449,3 +464,40 @@ def plot_priors(confusion, sorted=True, path=None):
 		plt.show()
 	else:
 		plt.savefig(path,bbox_inches='tight',dpi=100)
+
+class Ensemble(nn.Module):
+	def __init__(self, num_classes, device, config_file):
+		super(Ensemble, self).__init__()
+		if not config_file:
+			print("To use the ensemble you have to specify a config file.")
+			print("Add the 'ensemble_config' entry in your evaluation configuration file.")
+			raise Exception
+		self.requires_context = False
+		self.num_classes = num_classes
+		self.wrapper = False
+		self.returns_logits = False
+		self.config_path = os.path.abspath('configs/ensemble/')
+		self.config_file = config_file		
+		self.device = device
+		self.__init_models()
+
+	def __init_models(self):
+		self.models = []
+		with open(os.path.join(self.config_path, self.config_file), 'r') as file:
+			checkpoints = yaml.safe_load(file)
+			for key, value in checkpoints.items():
+				config = {'net':key, 'load_checkpoint': value, 'device':'gpu', 'num_classes':15}
+				model = load_network(config, self.device).to(self.device)
+				load_checkpoint(config,model)
+				self.models.append(model)
+
+
+	def forward(self, x:torch.Tensor, context=None):
+		logits = []
+		for net in self.models:
+			net.eval()
+			logits.append(net(x))
+		preds = [torch.argmax(logit.squeeze().permute(1,2,0).cpu(), dim=2) for logit in logits]
+		stack = torch.stack(tuple(preds), dim=0)
+		values, _ = torch.mode(stack, dim=0)
+		return values

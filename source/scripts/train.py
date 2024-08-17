@@ -102,7 +102,7 @@ for epoch in range(last_epoch, config['epochs']):
             if net.requires_context:
                 context = context.to(device)            
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask.squeeze(0).type(torch.long))
+            loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
             training_loss_values.append(loss.item())
             opt.zero_grad()
             loss.backward()

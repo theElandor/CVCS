@@ -22,7 +22,9 @@ try:
 except:
     print("Error in loading network.")
     exit(0)
-TL, VL, mIoU, wIoU = utils.load_checkpoint(config, net)
+
+if 'load_checkpoint' in config.keys():
+    utils.load_checkpoint(config, net)
 p = config['patch_size']
 dataset = GID15(config['dataset'], (p, p))
 
