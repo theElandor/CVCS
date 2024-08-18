@@ -6,7 +6,7 @@ import torchvision.transforms.v2 as v2
 import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel, AutoImageProcessor, SegformerForSemanticSegmentation, SegformerConfig
-from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer
+from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer, VisionTransformerEncoder
 from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large
 
 """
@@ -371,13 +371,16 @@ class Urnetv2(nn.Module):
 		return segmap
 	
 class FUnet(nn.Module):
-      # classic Unet with some reshape and cropping to match our needs.
-	def __init__(self, num_classes):
+	  # classic Unet with some reshape and cropping to match our needs.
+	def __init__(self, num_classes, D=196):
 		super(FUnet, self).__init__()		
 		self.requires_context = True
 		self.wrapper = False
 		self.returns_logits = True
-		# -----------------PATCH ENCODER-----------------------
+		self.D = D
+		# -----------------TRANSFORMER BOTTLENECK--------------
+		self.transformer = VisionTransformerEncoder(self.D, 4, 4)
+		# -----------------PATCH ENCODER-----------------------		
 		self.encode1 = nn.Sequential(
 			UnetEncodeLayer(3, 64, padding=1),
 			UnetEncodeLayer(64, 64, padding=1), ## keep dimensions unchanged
@@ -404,28 +407,28 @@ class FUnet(nn.Module):
 		)
 		# -----------------CONTEXT ENCODER--------------------
 		self.encode1_c = nn.Sequential(
-			UnetEncodeLayer(3, 64, padding=1),
-			UnetEncodeLayer(64, 64, padding=1), ## keep dimensions unchanged
+			UnetEncodeLayer(3, 64, padding=3, dilation=3),
+			UnetEncodeLayer(64, 64, padding=3, dilation=3), ## keep dimensions unchanged
 		)
 		self.encode2_c = nn.Sequential(
 			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(64, 128, padding=1),
-			UnetEncodeLayer(128, 128, padding=1),
+			UnetEncodeLayer(64, 128, padding=3, dilation=3),
+			UnetEncodeLayer(128, 128, padding=3, dilation=3),
 		)
 		self.encode3_c = nn.Sequential(
 			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(128, 256, padding=1),
-			UnetEncodeLayer(256, 256, padding=1),
+			UnetEncodeLayer(128, 256, padding=3, dilation=3),
+			UnetEncodeLayer(256, 256, padding=3, dilation=3),
 		)
 		self.encode4_c = nn.Sequential(
 			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(256, 512, padding=1),
-			UnetEncodeLayer(512, 512, padding=1),
+			UnetEncodeLayer(256, 512, padding=3, dilation=3),
+			UnetEncodeLayer(512, 512, padding=3, dilation=3),
 		)
 		self.encode5_c = nn.Sequential(
 			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(512, 1024, padding=1),
-			UnetEncodeLayer(1024, 1024, padding=1),
+			UnetEncodeLayer(512, 1024, padding=3, dilation=3),
+			UnetEncodeLayer(1024, 1024, padding=3, dilation=3),
 		)		
 
 		# ---------------DECODER-----------------
@@ -454,13 +457,7 @@ class FUnet(nn.Module):
 		self.decode_forward4 = nn.Sequential(
 			UnetForwardDecodeLayer(192,64, padding=1),
 			nn.Conv2d(64, num_classes, kernel_size=1) # final conv 1x1
-			# Model output is 6xHxW, so we have a prob. distribution
-			# for each pixel (each pixel has a logit for each of the 6 classes.)
-		)
-
-		self.fusion = nn.Sequential(
-			UnetForwardDecodeLayer(2048,1024, padding=1),			
-		)
+		)		
 
 	def encode_patch(self, x: torch.Tensor):
 		self.x1 = self.encode1(x)
@@ -479,8 +476,12 @@ class FUnet(nn.Module):
 		return self.x5_c
 	
 	def embedding_fusion(self):
-		self.concat_embeddings = torch.concat((self.x5, self.x5_c), 1)
-		self.fused_features = self.fusion(self.concat_embeddings)
+		N,L,h,w = self.x5.shape
+		D = h*w		
+		q = self.x5.reshape(N,L,D)
+		k = v = self.x5_c.reshape(N,L,D)
+		out = self.transformer(q,k,v)
+		self.fused_features = out[0].reshape(N,L,h,w)		
 
 	def decode(self):
 		y1 = self.upscale1(self.fused_features)

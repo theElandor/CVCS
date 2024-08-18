@@ -64,34 +64,47 @@ class VisionTransformer(nn.Module):
 		super(VisionTransformer, self).__init__()
 		# self.linear_projection = nn.Linear(p*p*3, D) don't need it in this architecture
 		# self.positional_encoding = PositionalEncoding(D, N) neither this.
-		self.layer_norm1 = nn.LayerNorm(D)
+		self.layer_norm1_1 = nn.LayerNorm(D) #q
+		self.layer_norm1_2 = nn.LayerNorm(D) #k,v
 		self.layer_norm2 = nn.LayerNorm(D)
 		self.MHA = nn.MultiheadAttention(embed_dim=D, num_heads=num_heads, batch_first=True)
 		self.mlp = nn.Sequential(
 			# using D*4 hidden size according to original vision transformer paper
 			nn.Linear(D, D*4),
-            nn.GELU(),
-            nn.Linear(D*4, D)
+			nn.GELU(),
+			nn.Linear(D*4, D)
 		)
 		# we should have one of this for each head
-	def forward(self, x):
+	def forward(self, s: torch.tensor):
+		"""
+		Parameters:
+			+ s (tensor): concatenation of query, key and value
+		"""
 		#x = self.linear_projection(x) # N, p*p*3 --> N, D
 		#self.r1 = self.positional_encoding(x) # add positional encoding to x, embedded patches
-		self.r1 = x		
-		x = self.layer_norm1(self.r1)		
-		x = self.MHA(x,x,x)[0]
+		q = s[0]
+		k = s[1]
+		v = s[2]
+		self.r1 = q
+		q = self.layer_norm1_1(q)
+		k = self.layer_norm1_2(k)
+		v = self.layer_norm1_2(v)
+
+		x = self.MHA(q,k,v)[0]
+
 		self.r2 = x + self.r1
-		x = self.layer_norm2(self.r2)
+		x = self.layer_norm2(x)
 		x = self.mlp(x)
-		return x + self.r2
+		return torch.stack((x+self.r2, k, v), dim=0)
 
 def vision_transformer(D,num_heads):
-    return VisionTransformer(D,num_heads)
-    
+	return VisionTransformer(D,num_heads)
+	
 class VisionTransformerEncoder(nn.Module):
-    def __init__(self, D, num_heads, layers):
-        super(VisionTransformerEncoder, self).__init__()
-        self.layers =[vision_transformer(D,num_heads) for _ in range(layers)]
-        self.stack = nn.Sequential(*self.layers)
-    def forward(self, x):
-        return self.stack(x)
+	def __init__(self, D, num_heads, layers):
+		super(VisionTransformerEncoder, self).__init__()
+		self.layers =[vision_transformer(D,num_heads) for _ in range(layers)]
+		self.stack = nn.Sequential(*self.layers)
+	def forward(self, q,k,v):
+		s = torch.stack((q,k,v), dim=0)
+		return self.stack(s)
