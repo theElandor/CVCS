@@ -111,7 +111,7 @@ def validation_loss(net, Loader_validation, crit, device, bs, show_progress=Fals
 			dl = torch.utils.data.DataLoader(dataset, batch_size=bs)
 			if show_progress:
 				pbar = tqdm(total=len(dataset.chunk_crops)//bs, desc=f'Chunk {c+1}')
-			for image, index_mask, _, context in enumerate(dl):
+			for image, index_mask, _, context in dl:
 				image, mask = image.to(device), index_mask.to(device)
 				if net.requires_context:
 					context = context.to(device)

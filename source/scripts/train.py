@@ -7,6 +7,7 @@ import sys
 import random
 import dataset
 from prettytable import PrettyTable
+import traceback
 inFile = sys.argv[1]
 
 with open(inFile,"r") as f:
@@ -26,7 +27,8 @@ try:
     net = utils.load_network(config, device)
     t.add_row(['parameters', utils.count_params(net)])    
 except:
-    print("Error in loading network.")
+    traceback.print_exc()
+    print("Error in loading network.")    
     exit(0)
 
 t.add_row(['Patch size',Loader_train.patch_size])

@@ -4,7 +4,7 @@ test: D:\Datasets\GID15_test\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
 #load_checkpoint: D:\weights\checkpoint8
-net: SegformerMod
+net: FUnet
 epochs: 1
 chunk_size: 2
 patch_size: 224
