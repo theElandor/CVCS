@@ -1,18 +1,18 @@
 import torch
 import torch.nn as nn
-def conv3x3(in_channels: int, out_channels: int, padding=0):
-	return nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=padding)
+def conv3x3(in_channels: int, out_channels: int, padding=0, dilation=1):
+	return nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=padding, dilation=dilation)
 def max_pool_2d():
 	return nn.MaxPool2d(kernel_size=2, stride=2)
 
 class UnetEncodeLayer(nn.Module):
     # just a standard convolution layer.
-	def __init__(self, in_channels: int, out_channels: int, activated=True,max_pool=False, padding=0):
+	def __init__(self, in_channels: int, out_channels: int, activated=True,max_pool=False, padding=0, dilation=1):
 		super(UnetEncodeLayer, self).__init__()
-		layers = [
-            conv3x3(in_channels, out_channels, padding=padding),
+		layers = [			
+			conv3x3(in_channels, out_channels, padding=padding, dilation=dilation),
 			nn.BatchNorm2d(out_channels),            
-        ]
+		]		
 		if activated:
 			layers += [nn.ReLU()]
 		if max_pool:
