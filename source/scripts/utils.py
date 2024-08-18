@@ -116,7 +116,7 @@ def validation_loss(net, Loader_validation, crit, device, bs, show_progress=Fals
 				if net.requires_context:
 					context = context.to(device)
 				mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-				loss = crit(mask_pred, mask.squeeze(0).type(torch.long))
+				loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
 				loss_values.append(loss.item())
 				if show_progress:
 					pbar.update(1)                
