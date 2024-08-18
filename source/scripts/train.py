@@ -87,9 +87,7 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
     Loader_train.shuffle() # shuffle full-sized images
-    for c in range(len(Loader_train)):
-        if c == 0:
-            break
+    for c in range(len(Loader_train)):        
         # if random_tps is specified, then this chunk will contain patches of random size
         if 'random_tps' in config.keys():
             p = random.choice(config['random_tps'])
