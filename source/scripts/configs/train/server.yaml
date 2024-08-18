@@ -2,14 +2,16 @@ train: /work/cvcs2024/MSseg/Train
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
 device: gpu
-checkpoint_directory: /work/cvcs2024/MSseg/checkpoints/test
-epochs: 20 # number of epochs.
+checkpoint_directory:  /homes/mlugli/checkpoints/test
+net: FUnet
+epochs: 20
 chunk_size: 10
-freq: 1
-verbose: False
+patch_size: 224
 batch_size: 4
+verbose: False
+
+freq: 1
 precision_evaluation_freq: 1
-net: Unetv2
 opt: SGD1
 loss: CEL
 num_classes: 15
