@@ -1,12 +1,11 @@
-train: D:\Datasets\GID15_test\Train
-validation: D:\Datasets\GID15_test\Validation
-test: D:\Datasets\GID15_test\Test
+train: D:\Datasets\GID15\gid-15\GID\Train
+validation: D:\Datasets\GID15\gid-15\GID\Validation
+test: D:\Datasets\GID15\gid-15\GID\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
-#load_checkpoint: D:\weights\checkpoint8
-net: FUnet
-epochs: 1
-chunk_size: 2
+net: Unetv2
+epochs: 20
+chunk_size: 10
 patch_size: 224
 batch_size: 4
 verbose: True

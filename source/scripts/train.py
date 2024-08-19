@@ -6,6 +6,7 @@ import yaml
 import sys
 import random
 import dataset
+import torchvision.transforms.v2 as transforms
 from prettytable import PrettyTable
 import traceback
 inFile = sys.argv[1]
@@ -13,8 +14,21 @@ inFile = sys.argv[1]
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 utils.display_configs(config)
-Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
-Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
+image_transforms = transforms.Compose([
+    transforms.ColorJitter(contrast=0.6),
+    transforms.GaussianBlur(5, sigma=(0.01, 20.0))
+])
+mask_transforms = transforms.RandomRotation(30)
+
+Loader_train = dataset.Loader(config['train'],
+                              config['chunk_size'], 
+                              random_shift=True, 
+                              patch_size=config['patch_size'],
+                              image_transforms=image_transforms,
+                              mask_transforms=mask_transforms)
+Loader_validation = dataset.Loader(config['validation'],
+                                   1, 
+                                   patch_size=config['patch_size'])
 
 if config.get('debug'):
     Loader_train.specify([0,1]) # debug, train on 2 images only

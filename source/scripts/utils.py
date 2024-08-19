@@ -227,7 +227,7 @@ def count_params(net):
 def load_optimizer(config, net):
 	optimizer = config['opt']
 	if optimizer == 'SGD1':
-		return torch.optim.SGD(net.parameters(), lr=0.005, momentum=0.90, weight_decay=0.0005)
+		return torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.0005)
 	elif optimizer == 'ADAM1':
 		return torch.optim.Adam(net.parameters(), lr=1e-4)
 	else:

@@ -1,5 +1,5 @@
-net: SegformerMod
-load_checkpoint: D:\weights\segmod_heckpoint20
+net: Ensemble
+#load_checkpoint: D:\weights\segmod_heckpoint20
 dataset: D:\Datasets\GID15\gid-15\GID\Validation
 num_classes: 15
 patch_size: 224
