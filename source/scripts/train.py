@@ -6,7 +6,7 @@ import yaml
 import sys
 import random
 import dataset
-import torchvision.transforms.v2 as transforms
+
 from prettytable import PrettyTable
 import traceback
 inFile = sys.argv[1]
@@ -14,11 +14,8 @@ inFile = sys.argv[1]
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 utils.display_configs(config)
-image_transforms = transforms.Compose([
-    transforms.ColorJitter(contrast=0.6),
-    transforms.GaussianBlur(5, sigma=(0.01, 20.0))
-])
-mask_transforms = transforms.RandomRotation(30)
+
+image_transforms, mask_transforms = utils.load_basic_transforms(config)
 
 Loader_train = dataset.Loader(config['train'],
                               config['chunk_size'], 
@@ -112,13 +109,17 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
-        for batch_index, (image, index_mask, _, context) in enumerate(dl):
-            image, mask = image.to(device), index_mask.to(device)
+        for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
+            image, mask = image.to(device), index_mask.to(device)            
             # avoid loading context to GPU if not needed
             if net.requires_context:
-                context = context.to(device)            
+                context = context.to(device)
+            if config.get('debug_plot') and c == 0 and batch_index == 0:
+                utils.debug_plot(epoch, c, batch_index, image, color_mask, context)
+
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
+
             training_loss_values.append(loss.item())
             opt.zero_grad()
             loss.backward()

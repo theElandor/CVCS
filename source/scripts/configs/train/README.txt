@@ -70,3 +70,14 @@
 + random_tps: <list of int>
   Random patch size to pick from during training loop.
   Might slow down training.
+
++ augmentation: <bool>
+  If set to True, some basic data augmentation random
+  transforms will be passed to the training data loader.
+
++ debug_plot: <bool>
+  If set to True, the training procedure will call the 
+  debug_plot function at the beginning of every epoch.
+  The function plots the path, color mask and context
+  of the first sample found in the batch.
+  Made for debug purposes.

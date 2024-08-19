@@ -15,6 +15,7 @@ from torchmetrics.classification import MulticlassConfusionMatrix
 from prettytable import PrettyTable
 from converters import GID15Converter
 import yaml
+import torchvision.transforms.v2 as transforms
 
 labels = {
 	0:"unlabeled",
@@ -227,7 +228,7 @@ def count_params(net):
 def load_optimizer(config, net):
 	optimizer = config['opt']
 	if optimizer == 'SGD1':
-		return torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.90, weight_decay=0.0005)
+		return torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.90, weight_decay=0.0005)
 	elif optimizer == 'ADAM1':
 		return torch.optim.Adam(net.parameters(), lr=1e-4)
 	else:
@@ -501,3 +502,43 @@ class Ensemble(nn.Module):
 		stack = torch.stack(tuple(preds), dim=0)
 		values, _ = torch.mode(stack, dim=0)
 		return values
+
+def load_basic_transforms(config):
+	"""
+	Paramters:
+		config file
+	Returns:
+		Basic image transformations including color jitter, gaussian blur and random rotation.
+		If 'augmentation' is False or not specified in the config file, returns None.
+	"""
+	if config.get('augmentation'):
+		image_transforms = transforms.Compose([
+			transforms.ColorJitter(contrast=0.6),
+			transforms.GaussianBlur(5, sigma=(0.01, 20.0))
+		])
+		mask_transforms = transforms.RandomRotation(30)
+		return image_transforms, mask_transforms
+	return None,None
+
+def debug_plot(e,c,i,image,color_mask, context):
+	"""
+	Parameters:
+		e (int): epoch
+		c (int): chunk index
+		i (int): batch index
+		config (config file)
+		image (torch.tensor, dim=B,C,H,W)
+		color_mask (torch.tensor, dim=B,C,H,W)
+		context (torch.tensor, dim=B,C,H,W)
+	Function that at the beginning of every epoch plots the first
+	encountered patch with the coresponding color mask and context.
+	Made for debug purposes. Only the first image of the batch is taken.
+	"""		
+	image = image[0]
+	color_mask = color_mask[0]
+	context = context[0]
+	f, axarr = plt.subplots(1,3)
+	axarr[0].imshow(image.permute(1,2,0).cpu())
+	axarr[1].imshow(color_mask.permute(1,2,0).cpu())
+	axarr[2].imshow(context.permute(1,2,0).cpu())
+	plt.savefig(os.path.join("output", f"epoch{e}_chunk{c}_index{i}.png"))

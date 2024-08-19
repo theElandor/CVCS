@@ -3,9 +3,11 @@ validation: D:\Datasets\GID15\gid-15\GID\Validation
 test: D:\Datasets\GID15\gid-15\GID\Test
 device: gpu
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
+debug_plot: True
+augmentation: True
 net: Unetv2
 epochs: 20
-chunk_size: 10
+chunk_size: 2
 patch_size: 224
 batch_size: 4
 verbose: True
