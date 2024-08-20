@@ -11,7 +11,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${fileDirname}",
-            "args": "configs\\train\\fisso.yaml"
+            "args": "configs\\evaluation\\eval.yaml",
+            "justMyCode": false
         }
     ]
 }

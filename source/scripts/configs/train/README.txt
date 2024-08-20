@@ -81,3 +81,9 @@
   The function plots the path, color mask and context
   of the first sample found in the batch.
   Made for debug purposes.
+
+
++ ignore_background <bool>
+  Wether or not to ignore the background class (index = 0)
+  Background will not be considered even when evaluating the model
+  during training.

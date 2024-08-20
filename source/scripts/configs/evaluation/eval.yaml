@@ -1,5 +1,5 @@
-net: Ensemble
-#load_checkpoint: D:\weights\segmod_heckpoint20
+net: Unetv2
+load_checkpoint: D:\weights\checkpoint8
 dataset: D:\Datasets\GID15\gid-15\GID\Validation
 num_classes: 15
 patch_size: 224
