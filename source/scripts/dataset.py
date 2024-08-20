@@ -169,7 +169,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				concatenation = self.mT(concatenation)
 				patch = concatenation[:3, :,:]
 				index_mask = concatenation[3, :, :]
-				color_mask = concatenation[4:, :, :]				
+				color_mask = concatenation[4:, :, :]
 			# append everything to list
 			self.patches.append((patch, index_mask, color_mask, context))
 			
@@ -218,12 +218,14 @@ class Loader():
 		self.random_shift = random_shift
 		self.image_transforms = image_transforms
 		self.mask_transforms = mask_transforms
+		self.class_weights = None
 
 		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
 		self.indexdir = os.path.join(root, "Annotation__index")
 		self.maskdir = os.path.join(root, "Annotation__color")
 
 		self.images = sorted([os.path.join(self.imdir, image) for image in os.listdir(self.imdir)])
+		self.index_masks = sorted([os.path.join(self.indexdir, image) for image in os.listdir(self.indexdir)])
 
 		self.image_shape = self.__get_shape(self.images)
 		self.tpi = self.__get_tpi()
@@ -307,3 +309,23 @@ class Loader():
 		"""
 		self.idxs = [self.idxs[i] for i in targets]
 		self.__generate_chunks()
+
+	def get_priors(self, classes, ignore_background=False):
+		'''
+		Returns class weights over the dataset.
+		params
+		distribution: if set to True, it will return the priors of the labels instead of the weights.
+		'''
+		if not self.class_weights:
+			self.class_weights = torch.zeros(classes, dtype=torch.float32)
+			for img in self.index_masks:
+				mask = tv_tensors.Mask(Image.open(img))
+				for cl in range(classes):
+					self.class_weights[cl] += torch.sum(mask == cl)
+			if ignore_background:
+				self.class_weights = self.class_weights[1:]
+			self.class_weights /= torch.sum(self.class_weights)
+		if ignore_background:
+			return torch.concat((torch.tensor([1]), self.class_weights), dim=0)
+		else:
+			return self.class_weights

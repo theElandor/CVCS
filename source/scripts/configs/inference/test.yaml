@@ -1,6 +1,7 @@
-net: SegformerMod
-load_checkpoint: D:\weights\segmod_heckpoint20
-dataset: D:\Datasets\GID15\gid-15\GID\Validation
+net: Resnet101
+load_checkpoint: D:\weights\checkpoint12
+#dataset: D:\Datasets\GID15\gid-15\GID\Validation
+dataset: D:\Datasets\GID25\Validation
 num_classes: 15
 patch_size: 224
 device: gpu
