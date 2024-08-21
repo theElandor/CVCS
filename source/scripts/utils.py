@@ -12,9 +12,11 @@ import torch.nn as nn
 import loss
 from PIL import Image
 from torchmetrics.classification import MulticlassConfusionMatrix
+from torchmetrics.segmentation import MeanIoU
 from prettytable import PrettyTable
 from converters import GID15Converter
 import yaml
+import torchvision.transforms.v2 as transforms
 
 labels = {
 	0:"unlabeled",
@@ -34,7 +36,8 @@ labels = {
 	14:"lake",
 	15:"pond",
 }
-def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False):
+
+def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False, ignore_background=False):
 	"""
 	Function that evaluates model precision.
 	Parameters:
@@ -43,24 +46,19 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 		device(torch device): device to use
 		batch_size (int)
 		show_progress (bool): True to show progress bar
-	Returns:
-		AmIoU (int): average mean intersection over union.
-			It's the mIoU averaged on the number of samples.
-		AwIoU (int): same as AmIoU but weighted considering the
-			support for each class.
+	Returns:		
 		flat confusion matrix (torchmetrics metric): un-normalized
 			confusion matrix. Usefull to compute evaluation metrics
 		normalized confusion matrix (torchmetrics metric): normalized 
 			confusion matrix. Usefull for plotting.
-	"""
-	macro = 0
-	weighted = 0    
-	net.eval()	
+	""" 
+	net.eval()
 	# shape: N x H x W (960x224x224)
-	normalized_confusion_metric = MulticlassConfusionMatrix(num_classes=16, normalize='true')
-	flat_confusion_metric = MulticlassConfusionMatrix(num_classes=16)
+	ignored_index = 0 if ignore_background else None
+	normalized_confusion_metric = MulticlassConfusionMatrix(num_classes=16, normalize='true', ignore_index=ignored_index)
+	flat_confusion_metric = MulticlassConfusionMatrix(num_classes=16, ignore_index=ignored_index)	
 	with torch.no_grad():
-		for c in range(len(Loader_validation)):									
+		for c in range(len(Loader_validation)):
 			dataset = Loader_validation.get_iterable_chunk(c)
 			dl = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 			if show_progress:
@@ -69,7 +67,7 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 				x, y = x.to(device), y.to(device)
 				if net.requires_context:
 					context = context.to(device)
-				y_pred = net(x.type(torch.float32), context.type(torch.float32))				
+				y_pred = net(x.type(torch.float32), context.type(torch.float32))
 				y_pred = y_pred.squeeze().cpu()
 				if net.returns_logits:
 					_,pred_mask = torch.max(y_pred, dim=0)
@@ -84,22 +82,15 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 				except:
 					print("Something wrong with updating parameters")
 					break
-				prediction = pred_mask.cpu().numpy().reshape(-1)
-				target = y.cpu().numpy().reshape(-1)
-				weighted += jsc(target,prediction, average='weighted') # takes into account label imbalance				
-				macro += jsc(target,prediction, average='macro') # simple mean over each class.
 				if show_progress:
 					pbar.update(1)
 			if show_progress:
 				pbar.close()
 			print("Updating confusion matrix...")
-			
-	macro_score = macro / ((len(dataset.chunk_crops)*len(Loader_validation))// batch_size)
-	weighted_score = weighted / ((len(dataset.chunk_crops)*len(Loader_validation))// batch_size)
-	if show_progress:	
+	if show_progress:
 		pbar.close()
-	# return macro_score, weighted_score, global_mask, global_pred
-	return macro_score, weighted_score, flat_confusion_metric, normalized_confusion_metric
+	# return confusion matrix
+	return flat_confusion_metric, normalized_confusion_metric
 
 
 def validation_loss(net, Loader_validation, crit, device, bs, show_progress=False):
@@ -227,23 +218,29 @@ def count_params(net):
 def load_optimizer(config, net):
 	optimizer = config['opt']
 	if optimizer == 'SGD1':
-		return torch.optim.SGD(net.parameters(), lr=0.005, momentum=0.90, weight_decay=0.0005)
+		return torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.90, weight_decay=0.0005)
 	elif optimizer == 'ADAM1':
 		return torch.optim.Adam(net.parameters(), lr=1e-4)
 	else:
 		raise ValueError("Optimizer name not valid.")
 
 def load_loss(config, device, dataset=None):
-	classes = config['num_classes']
-	name = config['loss']
+	classes = config['num_classes']+1
+	name = config['loss']	
+	ignore_background = config['ignore_background']
+	
+	ignore_index = 0 if ignore_background else -100 # -100 is default
 	if name == "CEL":
-		return nn.CrossEntropyLoss()
-	elif name == "DEL":        
-		return loss.DiceEntropyLoss(device, classes)
+		return nn.CrossEntropyLoss(ignore_index=ignore_index)
 	elif name == "wCEL":
 		print("Computing class weights, it might take several minutes...")
-		weights = dataset.get_class_weights().to(device)
-		return nn.CrossEntropyLoss(weight=weights)
+		priors = dataset.get_priors(classes, ignore_background=ignore_background).to(device)
+		weights = 1-priors
+		t = PrettyTable(['Class', 'Weight'])
+		for i,score in enumerate(weights):
+			t.add_row([labels[i], score.item()])
+		print(t, flush=True)
+		return nn.CrossEntropyLoss(weight=weights, ignore_index=ignore_index)
 	else:
 		raise Exception
 	
@@ -304,84 +301,75 @@ def load_checkpoint(config, net, load_confusion=False):
 			return TL, VL, mIoU, wIoU, flat, normalized
 		return TL, VL, mIoU, wIoU
 	
+def precision_formula(tp, fp, fn):
+	return tp/(tp+fp)
+def precision_ignore_condition(tp, fp, fn):
+	return True if tp+fp == 0 else False
+
+def recall_formula(tp, fp, fn):
+	return tp/(tp+fn)
+def recall_ignore_condition(tp, fp, fn):
+	return True if tp+fn == 0 else False
+
+def IoU_formula(tp, fp, fn):
+	return tp/(tp+fn+fp)
+def IoU_ignore_condition(tp, fp, fn):
+	return True if tp+fn == 0 else False
+
+def F1_formula(tp, fp, fn):
+	return (2*tp)/(2*tp+fn+fp)
 
 
-def precision(confusion, macro=False):
+
+def _get_class_scores(confusion, formula, ignore_condition):
 	"""
-	returns precision for each class
+	Parameters:
+		+ confusion (confusion matrix)
+		+ formula (function)
+	Returns:
+		+ scores (torch.tensor): specified score for each class according to formula
+		+ excluded (list): list of class not found in the target (no samples)
 	"""
-	precisions = []
-	_, classes = list(confusion.shape)
-	for i in range(classes):
-		tp = confusion[i,i].item()
-		fp = (torch.sum(confusion[:, i])-tp).item()
-		if tp == 0:
-			precisions.append(0)
-		else:
-			precisions.append(tp/(tp+fp))
-	precisions = torch.tensor(precisions)
-	if macro:
-		return torch.mean(precisions).item()
-	else:
-		return precisions
-
-def recall(confusion, macro=False):
-	"""
-	returns recall for each class
-	"""
-	recall = []
-	_, classes = list(confusion.shape)
-	for i in range(classes):
-		tp = confusion[i,i].item()
-		fn = (torch.sum(confusion[i,:])-tp).item()
-		if tp == 0:
-			recall.append(0)
-		else:				
-			recall.append(tp/(tp+fn))
-	recall = torch.tensor(recall)
-	if macro:
-		return torch.mean(recall).item()
-	else:
-		return recall	
-
-
-def IoU(confusion, mean=False, exclude_zeros=False):
-	_, classes = list(confusion.shape)
-	IoU = []
-	for i in range(classes):
-		tp = confusion[i,i].item()
-		fp = (torch.sum(confusion[:, i])-tp).item()
-		fn = (torch.sum(confusion[i,:])-tp).item()
-		if tp == 0:
-			IoU.append(0)
-		else:
-			IoU.append(tp/(tp+fn+fp))
-	IoU = torch.tensor(IoU)
-	if exclude_zeros:
-		IoU = IoU[IoU.nonzero()].squeeze()
-	if mean:
-		return torch.mean(IoU).item()
-	else:
-		return IoU
-
-def F1(confusion, mean=False, exclude_zeros=False):
-	_, classes = list(confusion.shape)
 	scores = []
+	excluded = []
+	_, classes = list(confusion.shape)
 	for i in range(classes):
 		tp = confusion[i,i].item()
 		fp = (torch.sum(confusion[:, i])-tp).item()
-		fn = (torch.sum(confusion[i,:])-tp).item()
-		if tp == 0:
+		fn = (torch.sum(confusion[i, :])-tp).item()
+		if ignore_condition(tp, fp, fn):
 			scores.append(0)
+			excluded.append(i)
 		else:
-			scores.append((2*tp)/(2*tp+fn+fp))
+			scores.append(formula(tp, fp, fn))
 	scores = torch.tensor(scores)
-	if exclude_zeros:
-		scores = scores[scores.nonzero()].squeeze()
-	if mean:
-		return torch.mean(scores).item()
+	return scores, excluded
+
+def _get_mean_excluding_nptargets(scores, excluded):
+	included_precisions = torch.tensor([x for i,x in enumerate(scores) if i not in excluded])
+	m = torch.mean(included_precisions).item()
+	return m
+
+def _score_wrapper(confusion, formula, ignore_condition, macro, return_excluded):
+	scores, excluded = _get_class_scores(confusion, formula, ignore_condition)
+	m = _get_mean_excluding_nptargets(scores, excluded)	
+	if macro:		
+		return (m, excluded) if return_excluded else m
 	else:
-		return scores
+		return (scores, excluded) if return_excluded else m
+	
+
+def precision(confusion, macro=False, return_excluded=False):
+	return _score_wrapper(confusion, precision_formula, precision_ignore_condition ,macro, return_excluded)
+
+def recall(confusion, macro=False, return_excluded=False):
+	return _score_wrapper(confusion, recall_formula, recall_ignore_condition, macro, return_excluded)
+
+def IoU(confusion, mean=False, return_excluded=False):
+	return _score_wrapper(confusion, IoU_formula, IoU_ignore_condition, mean, return_excluded)
+
+def F1(confusion, mean=False, return_excluded=False):
+	return _score_wrapper(confusion, F1_formula, IoU_ignore_condition, mean, return_excluded)	
 
 def accuracy(confusion):
 	_, classes = list(confusion.shape)
@@ -389,25 +377,22 @@ def accuracy(confusion):
 	all_predictions = torch.sum(confusion).item()
 	return correct_predictions/all_predictions
 
-
-
-def print_metrics(macro, weighted, confusion):
+def print_metrics(confusion):
 	t = PrettyTable(['Metric', 'Score'])
 	t.align = "r"
-	t.add_row(['AmIoU', macro])
-	t.add_row(['AwIoU', weighted])
-	t.add_row(['mIoU', IoU(confusion, mean=True, exclude_zeros=True)])
+	t.add_row(['mIoU', IoU(confusion, mean=True)])
 	t.add_row(['mPrec', precision(confusion, macro=True)])
 	t.add_row(['mRec', recall(confusion, macro=True)])
-	t.add_row(['Dice', F1(confusion, mean=True, exclude_zeros=True)])
+	t.add_row(['Dice', F1(confusion, mean=True)])
 	t.add_row(['OA', accuracy(confusion)])
 	print(t)
 	iou = PrettyTable(['Class', 'IoU'])
 	iou.align = "r"
-	values = IoU(confusion, mean=False, exclude_zeros=False).tolist()
-	for i,score in enumerate(values):
+	values, excluded = IoU(confusion, mean=False, return_excluded=True)
+	for i,score in enumerate(values.tolist()):
 		iou.add_row([labels[i], score])
-	print(iou, flush=True)
+	print(f"Excluded classes (not in target): {[el for el in excluded]}")
+	print(iou, flush=True)	
 
 def display_configs(configs):
 	t = PrettyTable(['Name', 'Value'])
@@ -453,12 +438,12 @@ def plot_priors(confusion, sorted=True, path=None):
 		space = 3
 		label = '{:,.2f}M'.format(label/1e6)
 		plt.annotate(
-			label,                      
-			(x_value, y_value),         
-			xytext=(space, 0),          
+			label,
+			(x_value, y_value),
+			xytext=(space, 0),
 			textcoords='offset points', 
-			va='center',                
-			ha='left',                  
+			va='center',
+			ha='left',
 			color = 'black')  
 	if path == None:
 		plt.show()
@@ -501,3 +486,43 @@ class Ensemble(nn.Module):
 		stack = torch.stack(tuple(preds), dim=0)
 		values, _ = torch.mode(stack, dim=0)
 		return values
+
+def load_basic_transforms(config):
+	"""
+	Paramters:
+		config file
+	Returns:
+		Basic image transformations including color jitter, gaussian blur and random rotation.
+		If 'augmentation' is False or not specified in the config file, returns None.
+	"""
+	if config.get('augmentation'):
+		image_transforms = transforms.Compose([
+			transforms.ColorJitter(contrast=0.6),
+			transforms.GaussianBlur(5, sigma=(0.01, 20.0))
+		])
+		mask_transforms = transforms.RandomRotation(30)
+		return image_transforms, mask_transforms
+	return None,None
+
+def debug_plot(e,c,i,image,color_mask, context):
+	"""
+	Parameters:
+		e (int): epoch
+		c (int): chunk index
+		i (int): batch index
+		config (config file)
+		image (torch.tensor, dim=B,C,H,W)
+		color_mask (torch.tensor, dim=B,C,H,W)
+		context (torch.tensor, dim=B,C,H,W)
+	Function that at the beginning of every epoch plots the first
+	encountered patch with the coresponding color mask and context.
+	Made for debug purposes. Only the first image of the batch is taken.
+	"""		
+	image = image[0]
+	color_mask = color_mask[0]
+	context = context[0]
+	f, axarr = plt.subplots(1,3)
+	axarr[0].imshow(image.permute(1,2,0).cpu())
+	axarr[1].imshow(color_mask.permute(1,2,0).cpu())
+	axarr[2].imshow(context.permute(1,2,0).cpu())
+	plt.savefig(os.path.join("output", f"epoch{e}_chunk{c}_index{i}.png"))

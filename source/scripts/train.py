@@ -6,6 +6,7 @@ import yaml
 import sys
 import random
 import dataset
+
 from prettytable import PrettyTable
 import traceback
 inFile = sys.argv[1]
@@ -13,8 +14,18 @@ inFile = sys.argv[1]
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 utils.display_configs(config)
-Loader_train = dataset.Loader(config['train'], config['chunk_size'], random_shift=True, patch_size=config['patch_size'])
-Loader_validation = dataset.Loader(config['validation'], 1, patch_size=config['patch_size']) # chunk size of 1 for validation to save RAM. No random shift.
+
+image_transforms, mask_transforms = utils.load_basic_transforms(config)
+
+Loader_train = dataset.Loader(config['train'],
+                              config['chunk_size'], 
+                              random_shift=True, 
+                              patch_size=config['patch_size'],
+                              image_transforms=image_transforms,
+                              mask_transforms=mask_transforms)
+Loader_validation = dataset.Loader(config['validation'],
+                                   1, 
+                                   patch_size=config['patch_size'])
 
 if config.get('debug'):
     Loader_train.specify([0,1]) # debug, train on 2 images only
@@ -38,8 +49,9 @@ t.add_row(['Validation patches', len(Loader_validation.idxs)*Loader_validation.t
 print(t, flush=True)
 
 try:
-    crit = utils.load_loss(config, device)
+    crit = utils.load_loss(config, device, Loader_train)
 except:
+    traceback.print_exc()
     print("Error in loading loss module.")
     exit(0)
 try:
@@ -52,8 +64,8 @@ except:
 
 training_loss_values=   [] # store every training loss value
 validation_loss_values= [] # store every validation loss value
-macro_precision=        [] # store AmIoU after each epoch
-weighted_precision=     [] # store AwIoU after each epoch
+macro_precision=        [] # store AmIoU after each epoch (DEPRECATED)
+weighted_precision=     [] # store AwIoU after each epoch (DEPRECATED)
 conf_flat=              [] # store unnormalized confusion matrix after each epoch
 conf_normalized=        [] # store normalized confusion matrix after each epoch
 
@@ -70,8 +82,8 @@ if  'load_checkpoint' in config.keys():
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
     config['batch_size'] = checkpoint['batch_size']
-    macro_precision = checkpoint['macro_precision']
-    weighted_precision = checkpoint['weighted_precision']
+    macro_precision = checkpoint['macro_precision'] # (DEPRECATED)
+    weighted_precision = checkpoint['weighted_precision'] # (DEPRECATED)
     # try to load confusion matrix, usefull for retrocompatibility for old models.
     try:
         conf_flat = checkpoint['conf_flat']
@@ -98,13 +110,17 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
-        for batch_index, (image, index_mask, _, context) in enumerate(dl):
-            image, mask = image.to(device), index_mask.to(device)
+        for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
+            image, mask = image.to(device), index_mask.to(device)            
             # avoid loading context to GPU if not needed
             if net.requires_context:
-                context = context.to(device)            
+                context = context.to(device)
+            if config.get('debug_plot') and c == 0 and batch_index == 0:
+                utils.debug_plot(epoch, c, batch_index, image, color_mask, context)
+
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
+
             training_loss_values.append(loss.item())
             opt.zero_grad()
             loss.backward()
@@ -121,12 +137,15 @@ for epoch in range(last_epoch, config['epochs']):
     if (epoch+1) % config['precision_evaluation_freq'] == 0:
         print("Evaluating precision after epoch {}".format(epoch+1), flush=True)
 
-        macro, weighted, flat, normalized = utils.eval_model(net, Loader_validation, device, batch_size=1, show_progress=config['verbose'])
+        flat, normalized = utils.eval_model(net, 
+                                            Loader_validation, 
+                                            device, 
+                                            batch_size=1, 
+                                            show_progress=config['verbose'],
+                                            ignore_background=config['ignore_background'])
         confusion = flat.compute() # get confusion matrix as tensor
-        utils.print_metrics(macro, weighted, confusion)
+        utils.print_metrics(confusion)
         # keep track of precision and confusion matrix
-        macro_precision.append(macro)
-        weighted_precision.append(weighted)
         conf_flat.append(flat)
         conf_normalized.append(normalized)
 

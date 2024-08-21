@@ -21,9 +21,14 @@ if 'load_checkpoint' in config:
 loader = dataset.Loader(config['dataset'], 1, patch_size=config['patch_size'])
 if 'images' in config.keys():
     loader.specify(config['images'])
-AmIoU, AwIoU, flat, normalized = utils.eval_model(net, loader, device, 1, show_progress=config['verbose'])
+flat, normalized = utils.eval_model(net, 
+                                    loader, 
+                                    device, 
+                                    1, 
+                                    show_progress=config['verbose'],
+                                    ignore_background=config['ignore_background'])
 confusion = flat.compute()
-utils.print_metrics(AmIoU, AwIoU, confusion)
+utils.print_metrics(confusion)
 # plot normalized confusion matrix
 utils.plot_confusion(normalized, path=config.get('confusion_matrix'))
 utils.plot_priors(confusion, path=config.get('priors'))
