@@ -77,7 +77,7 @@
 
 + debug_plot: <bool>
   If set to True, the training procedure will call the 
-  debug_plot function at the beginning of every epoch.
+  debug_plot function at each iteration.
   The function plots the path, color mask and context
   of the first sample found in the batch.
   Made for debug purposes.

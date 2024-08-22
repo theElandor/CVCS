@@ -115,7 +115,7 @@ for epoch in range(last_epoch, config['epochs']):
             # avoid loading context to GPU if not needed
             if net.requires_context:
                 context = context.to(device)
-            if config.get('debug_plot') and c == 0 and batch_index == 0:
+            if config.get('debug_plot'):
                 utils.debug_plot(epoch, c, batch_index, image, color_mask, context)
 
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)

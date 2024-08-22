@@ -113,7 +113,7 @@ class GID15(Dataset):
 	
 
 class IterableChunk(torch.utils.data.IterableDataset):
-	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224,iT=None, mT=None):		
+	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224,default_patch_size=224, iT=None, mT=None):		
 		super(IterableChunk).__init__()
 		self.indexdir = indexdir
 		self.maskdir = maskdir
@@ -123,6 +123,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		self.image_shape = image_shape
 		self.tpi = tpi
 		self.random_shift = random_shift
+		self.dps = default_patch_size
 
 		self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
 		self.to_load = [images[idx] for idx in chunk]
@@ -130,7 +131,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		self.chunk_crops = [_ for _ in range(self.tpi*self.chunk_size)] # [0...1919] if chunk size is 2
 		random.shuffle(self.chunk_crops)
 		self.images, self.index_masks, self.color_masks = self.load_images(self.to_load)
-		self.resize = v2.Resize(self.p)
+		self.resize = v2.Resize(self.dps)
 		# shuffle chunk_crops and crop the coresponding image
 		# still need to shuffle chunk_crops
 		self.patches = [] # list of tuples (image_crop, index_crop, mask_crop, context_crop)
@@ -171,7 +172,14 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				index_mask = concatenation[3, :, :]
 				color_mask = concatenation[4:, :, :]
 			# append everything to list
-			self.patches.append((patch, index_mask, color_mask, context))
+			if self.dps != self.p:
+				resize_image = v2.Resize((self.dps, self.dps))
+				resize_mask = v2.Resize((self.dps, self.dps), interpolation=v2.InterpolationMode.NEAREST_EXACT)
+				resize_index = v2.Resize(self.dps, interpolation=v2.InterpolationMode.NEAREST_EXACT)
+				patch = resize_image(patch)
+				color_mask = resize_mask(color_mask)
+				index_mask = resize_index(index_mask.unsqueeze(0))
+			self.patches.append((patch, index_mask.squeeze(), color_mask, context))
 			
 	def load_images(self, names):
 		"""
@@ -276,6 +284,7 @@ class Loader():
 							tpi = self.__get_tpi(p),
 							random_shift=self.random_shift,
 							patch_size=p,
+							default_patch_size = self.patch_size,
 							iT = self.image_transforms,
 							mT = self.mask_transforms)
 
