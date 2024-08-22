@@ -244,7 +244,7 @@ class Loader():
 		self.random_shift = random_shift
 		self.image_transforms = image_transforms
 		self.mask_transforms = mask_transforms
-		self.class_weights = None
+		self.count = None
 
 		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
 		self.indexdir = os.path.join(root, "Annotation__index")
@@ -332,23 +332,45 @@ class Loader():
 		"""
 		self.idxs = [self.idxs[i] for i in targets]
 		self.__generate_chunks()
-
-	def get_priors(self, classes, ignore_background=False):
+			
+	def _get_class_count(self, classes):
 		'''
 		Returns class weights over the dataset.
 		params
 		distribution: if set to True, it will return the priors of the labels instead of the weights.
 		'''
-		if not self.class_weights:
-			self.class_weights = torch.zeros(classes, dtype=torch.float32)
+		if not self.count:
+			self.count = torch.zeros(classes, dtype=torch.float32)
 			for img in self.index_masks:
 				mask = tv_tensors.Mask(Image.open(img))
 				for cl in range(classes):
-					self.class_weights[cl] += torch.sum(mask == cl)
-			if ignore_background:
-				self.class_weights = self.class_weights[1:]
-			self.class_weights /= torch.sum(self.class_weights)
+					self.count[cl] += torch.sum(mask == cl)
+		return self.count
+		# if ignore_background:
+		# 	self.class_weights = self.class_weights[1:]
+		# if return_count:
+		# 	return self.class_weights			
+		# self.class_weights /= torch.sum(self.class_weights)
+		# if ignore_background:
+		# 	return torch.concat((torch.tensor([1]), self.class_weights), dim=0)
+		# else:
+		# 	return self.class_weights
+	def get_class_weights(self, classes, ignore_background=False):
+		counts = self._get_class_count(classes)
+		w = []
 		if ignore_background:
-			return torch.concat((torch.tensor([1]), self.class_weights), dim=0)
-		else:
-			return self.class_weights
+			counts = counts[1:]
+		numerator = torch.sum(counts)
+		bincount = len(counts)
+		for class_count in counts:
+			if class_count.item() == 0:
+				w.append(0)
+			else:
+				w.append(numerator/(bincount*class_count.item()))
+		if ignore_background:
+			return torch.concat((torch.tensor([0]), torch.tensor(w)), dim=0)
+		return torch.tensor(w)
+	
+	def get_class_priors(self, classes):
+		counts = self._get_class_count(classes)
+		return torch.sum(counts)/counts
