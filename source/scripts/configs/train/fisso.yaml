@@ -1,4 +1,6 @@
-random_tps: [224, 512, 512,1024, 1024, 1024]
+debug: True
+debug_plot: True
+random_tps: [[512, 0.5],[1024, 0.5]]
 
 train: D:\Datasets\GID15\gid-15\GID\Train
 validation: D:\Datasets\GID15\gid-15\GID\Validation
@@ -10,12 +12,12 @@ augmentation: True
 ignore_background: False
 net: Unetv2
 epochs: 100
-chunk_size: 5
+chunk_size: 2
 patch_size: 224
 batch_size: 4
 verbose: True
 
-loss: wCEL
+loss: CEL
 opt: ADAM2
 freq: 1
 precision_evaluation_freq: 1

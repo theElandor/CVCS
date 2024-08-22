@@ -149,12 +149,10 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				tlx += offset_x			
 
 			# crop image, index mask and color mask
-			patch = v2.functional.crop(self.images[target_image], tly, tlx, self.p, self.p)
-			index_mask = v2.functional.crop(self.index_masks[target_image], tly, tlx, self.p, self.p)
-			color_mask = v2.functional.crop(self.color_masks[target_image], tly, tlx, self.p, self.p)
+			patch, index_mask, color_mask = self._get_cropped_data(target_image, tly, tlx, self.p)
 
 			#locate, crop and resize context
-			context = _get_context(self.images[target_image], tly, tlx, self.p)
+			context = self._get_context(self.images[target_image], tly, tlx, self.p)
 
 			# apply transformations:
 			#1) Apply iT only to Image
@@ -176,22 +174,24 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				h,w = self.image_shape
 				for _ in range(int(percentage*len(self.chunk_crops))): # add chunk_crops * percentage random rescaled crops of size aug_size
 					rand_index = random.randint(0, len(self.images)-1)
-					random_y = random.randint(0, h-1)
-					random_x = random.randint(0, w-1)
-					concatenation = torch.concat((self.images[rand_index], 
-								   self.index_masks[rand_index], 
-								   self.color_masks[rand_index]), dim=0)
-					cropped_concat = v2.functional.crop(concatenation, random_y, random_x, aug_size, aug_size)
-					cropped_patch = cropped_concat[:3, :,:]
-					cropped_index_mask = cropped_concat[3, :, :]
-					cropped_color_mask = cropped_concat[4:, :, :]
-					context = _get_context(self.images[rand_index], random_y, random_x, self.p)
-					self.patches.append(
-						image_resizer(cropped_patch), 
-						mask_resizer(cropped_index_mask),
-						mask_resizer(cropped_color_mask),
+					random_y = random.randint(0, h-1-aug_size)
+					random_x = random.randint(0, w-1-aug_size)
+					patch, index_mask, color_mask = self._get_cropped_data(rand_index, random_y, random_x, aug_size)
+					context = self._get_context(self.images[rand_index], random_y, random_x, self.p)
+					self.patches.append((
+						image_resizer(patch),
+						mask_resizer(index_mask.unsqueeze(0)).squeeze(),
+						mask_resizer(color_mask),
 						context
-					)
+					))
+					random.shuffle(self.patches)
+
+	def _get_cropped_data(self, target_image, tly, tlx, p):
+		patch = v2.functional.crop(self.images[target_image], tly, tlx, p, p)
+		index_mask = v2.functional.crop(self.index_masks[target_image], tly, tlx, p, p)
+		color_mask = v2.functional.crop(self.color_masks[target_image], tly, tlx, p, p)
+		return patch, index_mask, color_mask
+		
 	def _get_context(self, image, tly, tlx, p):
 		c_tly = tly-p
 		c_tlx = tlx-p
