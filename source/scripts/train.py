@@ -101,14 +101,10 @@ for epoch in range(last_epoch, config['epochs']):
     Loader_train.shuffle() # shuffle full-sized images
     for c in range(len(Loader_train)):        
         # if random_tps is specified, then this chunk will contain patches of random size
-        if 'random_tps' in config.keys():
-            p = random.choice(config['random_tps'])
-        else:
-            p = None # keep default patch size
-        dataset = Loader_train.get_iterable_chunk(c, p)
+        dataset = Loader_train.get_iterable_chunk(c,config.get('random_tps'))
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
-            pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
+            pbar = tqdm(total=len(dataset.patches)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
         for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
             image, mask = image.to(device), index_mask.to(device)            

@@ -347,6 +347,7 @@ class Urnetv2(nn.Module):
 			# for each pixel (each pixel has a logit for each of the 6 classes.)
 		)
 	def forward(self, x: torch.Tensor, context=None):
+				
 		self.x1 = self.encode1(x)
 		self.x2 = self.encode2(self.x1)
 		self.x3 = self.encode3(self.x2)

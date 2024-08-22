@@ -113,7 +113,7 @@ class GID15(Dataset):
 	
 
 class IterableChunk(torch.utils.data.IterableDataset):
-	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224,default_patch_size=224, iT=None, mT=None):		
+	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224,random_tps=None, iT=None, mT=None):
 		super(IterableChunk).__init__()
 		self.indexdir = indexdir
 		self.maskdir = maskdir
@@ -123,7 +123,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		self.image_shape = image_shape
 		self.tpi = tpi
 		self.random_shift = random_shift
-		self.dps = default_patch_size
+		self.random_tps = random_tps
 
 		self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
 		self.to_load = [images[idx] for idx in chunk]
@@ -131,7 +131,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		self.chunk_crops = [_ for _ in range(self.tpi*self.chunk_size)] # [0...1919] if chunk size is 2
 		random.shuffle(self.chunk_crops)
 		self.images, self.index_masks, self.color_masks = self.load_images(self.to_load)
-		self.resize = v2.Resize(self.dps)
+		self.resize = v2.Resize(self.p)
 		# shuffle chunk_crops and crop the coresponding image
 		# still need to shuffle chunk_crops
 		self.patches = [] # list of tuples (image_crop, index_crop, mask_crop, context_crop)
@@ -146,9 +146,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				offset_y = random.randint(-20,20)
 				offset_x = random.randint(-20,20)
 				tly += offset_y
-				tlx += offset_x
-
-			# get index mask name and color mask name
+				tlx += offset_x			
 
 			# crop image, index mask and color mask
 			patch = v2.functional.crop(self.images[target_image], tly, tlx, self.p, self.p)
@@ -156,10 +154,8 @@ class IterableChunk(torch.utils.data.IterableDataset):
 			color_mask = v2.functional.crop(self.color_masks[target_image], tly, tlx, self.p, self.p)
 
 			#locate, crop and resize context
-			c_tly = tly-self.p
-			c_tlx = tlx-self.p
-			h = w = self.p*3
-			context = self.resize(v2.functional.crop(self.images[target_image], c_tly, c_tlx, h, w))            
+			context = _get_context(self.images[target_image], tly, tlx, self.p)
+
 			# apply transformations:
 			#1) Apply iT only to Image
 			if self.iT != None:
@@ -172,15 +168,37 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				index_mask = concatenation[3, :, :]
 				color_mask = concatenation[4:, :, :]
 			# append everything to list
-			if self.dps != self.p:
-				resize_image = v2.Resize((self.dps, self.dps))
-				resize_mask = v2.Resize((self.dps, self.dps), interpolation=v2.InterpolationMode.NEAREST_EXACT)
-				resize_index = v2.Resize(self.dps, interpolation=v2.InterpolationMode.NEAREST_EXACT)
-				patch = resize_image(patch)
-				color_mask = resize_mask(color_mask)
-				index_mask = resize_index(index_mask.unsqueeze(0))
 			self.patches.append((patch, index_mask.squeeze(), color_mask, context))
-			
+		if self.random_tps:				
+			image_resizer = v2.Resize(self.p, interpolation=v2.InterpolationMode.BILINEAR)
+			mask_resizer = v2.Resize(self.p, interpolation=v2.InterpolationMode.NEAREST_EXACT)
+			for aug_size, percentage in self.random_tps:
+				h,w = self.image_shape
+				for _ in range(int(percentage*len(self.chunk_crops))): # add chunk_crops * percentage random rescaled crops of size aug_size
+					rand_index = random.randint(0, len(self.images)-1)
+					random_y = random.randint(0, h-1)
+					random_x = random.randint(0, w-1)
+					concatenation = torch.concat((self.images[rand_index], 
+								   self.index_masks[rand_index], 
+								   self.color_masks[rand_index]), dim=0)
+					cropped_concat = v2.functional.crop(concatenation, random_y, random_x, aug_size, aug_size)
+					cropped_patch = cropped_concat[:3, :,:]
+					cropped_index_mask = cropped_concat[3, :, :]
+					cropped_color_mask = cropped_concat[4:, :, :]
+					context = _get_context(self.images[rand_index], random_y, random_x, self.p)
+					self.patches.append(
+						image_resizer(cropped_patch), 
+						mask_resizer(cropped_index_mask),
+						mask_resizer(cropped_color_mask),
+						context
+					)
+	def _get_context(self, image, tly, tlx, p):
+		c_tly = tly-p
+		c_tlx = tlx-p
+		h = w = p*3
+		context = self.resize(v2.functional.crop(image, c_tly, c_tlx, h, w))
+		return context
+	
 	def load_images(self, names):
 		"""
 		Parameters:
@@ -265,26 +283,22 @@ class Loader():
 		random.shuffle(self.idxs)
 		self.__generate_chunks()
 
-	def get_iterable_chunk(self,idx, p=None):
+	def get_iterable_chunk(self,idx, random_tps=None):
 		"""
 		Parameters:
 			idx (int): index of chunk that you need to pre-load in memory.
 		Returns:
 			(IterableChunk): iterator on the specified chunk with shuffled patches.
 		"""
-		if p == None or p == self.patch_size:
-			p = self.patch_size
-		else: # if p is different from default			
-			print(f"Selected chunk size ({p}) is different from default=224. Total number of training patches is now variable.")
 		return IterableChunk(self.chunks[idx],
 							self.images, 
 							self.indexdir, 
 							self.maskdir, 
 							image_shape = self.image_shape,
-							tpi = self.__get_tpi(p),
+							tpi = self.__get_tpi(self.patch_size),
 							random_shift=self.random_shift,
-							patch_size=p,
-							default_patch_size = self.patch_size,
+							patch_size=self.patch_size,
+							random_tps=random_tps,
 							iT = self.image_transforms,
 							mT = self.mask_transforms)
 
