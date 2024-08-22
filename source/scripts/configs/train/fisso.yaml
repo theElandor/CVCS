@@ -1,21 +1,24 @@
 debug: True
+debug_plot: True
+random_tps: [[512, 0.5],[1024, 0.5]]
 
 train: D:\Datasets\GID15\gid-15\GID\Train
 validation: D:\Datasets\GID15\gid-15\GID\Validation
 test: D:\Datasets\GID15\gid-15\GID\Test
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
-debug_plot: False
+
 device: gpu
 augmentation: True
-ignore_background: True
+ignore_background: False
 net: Unetv2
-epochs: 20
+epochs: 100
 chunk_size: 2
 patch_size: 224
 batch_size: 4
 verbose: True
-loss: wCEL
-opt: SGD1
+
+loss: CEL
+opt: ADAM2
 freq: 1
 precision_evaluation_freq: 1
 num_classes: 15
