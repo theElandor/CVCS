@@ -361,11 +361,16 @@ def accuracy(confusion):
 def print_metrics(confusion):
 	t = PrettyTable(['Metric', 'Score'])
 	t.align = "r"
-	t.add_row(['mIoU', IoU(confusion, mean=True)])
-	t.add_row(['mPrec', precision(confusion, macro=True)])
-	t.add_row(['mRec', recall(confusion, macro=True)])
-	t.add_row(['Dice', F1(confusion, mean=True)])
-	t.add_row(['OA', accuracy(confusion)])
+	mIoU_score = IoU(confusion, mean=True)
+	precision_score = precision(confusion, macro=True)
+	recall_score = recall(confusion, macro=True)
+	dice_score = F1(confusion, mean=True)
+	oa_score = accuracy(confusion)
+	t.add_row(['mIoU', mIoU_score])
+	t.add_row(['mPrec', precision_score])
+	t.add_row(['mRec', recall_score])
+	t.add_row(['Dice', dice_score])
+	t.add_row(['OA', oa_score])
 	print(t)
 	iou = PrettyTable(['Class', 'IoU'])
 	iou.align = "r"
@@ -373,7 +378,13 @@ def print_metrics(confusion):
 	for i,score in enumerate(values.tolist()):
 		iou.add_row([labels[i], score])
 	print(f"Excluded classes (not in target): {[el for el in excluded]}")
-	print(iou, flush=True)	
+	print(iou, flush=True)
+	return {'perclass_IoU':values.tolist(),
+		 	'mIoU': mIoU_score, 
+			'precision_score':precision_score,
+			'recall_score:': recall_score,
+			'dice_score': dice_score,
+			'oa_score': oa_score}
 
 def display_configs(configs):
 	t = PrettyTable(['Name', 'Value'])
