@@ -1,11 +1,16 @@
 train: /work/cvcs2024/MSseg/Train
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
+checkpoint_directory:  /homes/mlugli/checkpoints/test6
+
+random_tps: [[512, 0.5],[1024, 0.5]]
+augmentation: False
+ignore_background: False
+
 device: gpu
-checkpoint_directory:  /homes/mlugli/checkpoints/test
-net: FUnet
+net: Unetv2
 epochs: 20
-chunk_size: 10
+chunk_size: 5
 patch_size: 224
 batch_size: 4
 verbose: False
