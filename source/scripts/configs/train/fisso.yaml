@@ -1,24 +1,24 @@
 debug: True
-debug_plot: True
+debug_plot: False
 random_tps: [[512, 0.5],[1024, 0.5]]
 
-train: D:\Datasets\GID15_test\Train
-validation: D:\Datasets\GID15_test\Validation
-test: D:\Datasets\GID15_test\Test
-checkpoint_directory: D:\weights\test # directory to save checkpoints in
+train: /home/nicola/CVCS/dataset/GID15/Train
+validation: /home/nicola/CVCS/dataset/GID15/Validation
+test: /home/nicola/CVCS/dataset/GID15/Test
+checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save checkpoints in
 
-device: gpu
+device: cpu
 augmentation: False
-ignore_background: False
-net: Resnet101
-epochs: 100
-chunk_size: 2
+ignore_background: True
+net: SegformerMod
+epochs: 12
+chunk_size: 1
 patch_size: 224
-batch_size: 4
+batch_size: 1
 verbose: True
 
-loss: wCEL
+loss: CEL
 opt: ADAM2
 freq: 1
-precision_evaluation_freq: 1
+precision_evaluation_freq: 4
 num_classes: 15
