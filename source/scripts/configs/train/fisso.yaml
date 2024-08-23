@@ -17,7 +17,7 @@ patch_size: 224
 batch_size: 4
 verbose: True
 
-loss: wCEL
+loss: CEL
 opt: ADAM2
 freq: 1
 precision_evaluation_freq: 1

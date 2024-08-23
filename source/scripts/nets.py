@@ -516,6 +516,7 @@ class DeepLabv3Resnet101(nn.Module):
 		self.wrapper = True
 		self.returns_logits = True
 		self.num_classes = num_classes
+		
 		if pretrained:
 			self.model = deeplabv3_resnet101(weights='COCO_WITH_VOC_LABELS_V1')
 			in_channels = self.model.classifier[4].in_channels
@@ -537,9 +538,9 @@ class DeepLabV3MobileNet(nn.Module):
 		super(DeepLabV3MobileNet, self).__init__()		
 		self.requires_context = False
 		self.wrapper = True
-		self.returns_logits = True
-		
+		self.returns_logits = True		
 		self.num_classes = num_classes
+
 		if pretrained:
 			self.model = deeplabv3_mobilenet_v3_large( weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)
 			in_channels = self.model.classifier[4].in_channels
