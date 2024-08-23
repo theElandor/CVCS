@@ -90,7 +90,7 @@ class Urnet(nn.Module):
 			# Model output is 6xHxW, so we have a prob. distribution
 			# for each pixel (each pixel has a logit for each of the 6 classes.)
 		)
-	def forward(self, x: torch.Tensor, context=None):
+	def forward(self, x: torch.Tensor, context:torch.Tensor=None):
 		self.x1 = self.encode1(x)
 		self.x2 = self.encode2(self.x1)
 		self.x3 = self.encode3(self.x2)
@@ -438,27 +438,27 @@ class FUnet(nn.Module):
 			nn.ConvTranspose2d(1024, 512,kernel_size=2, stride=2)
 		)
 		self.decode_forward1 = nn.Sequential(
-			UnetForwardDecodeLayer(1536,512, padding=1)
+			UnetForwardDecodeLayer(1024,512, padding=1)
 		)
 		self.upscale2 = nn.Sequential(
 			nn.ConvTranspose2d(512, 256,kernel_size=2, stride=2)
 		)
 		self.decode_forward2 = nn.Sequential(
-			UnetForwardDecodeLayer(768, 256, padding=1)
+			UnetForwardDecodeLayer(512, 256, padding=1)
 		)
 		self.upscale3 = nn.Sequential(
 			nn.ConvTranspose2d(256, 128,kernel_size=2, stride=2)
 		)
 		self.decode_forward3 = nn.Sequential(
-			UnetForwardDecodeLayer(384,128,padding=1)
+			UnetForwardDecodeLayer(256,128,padding=1)
 		)
 		self.upscale4 = nn.Sequential(
 			nn.ConvTranspose2d(128, 64,kernel_size=2, stride=2)
 		)
 		self.decode_forward4 = nn.Sequential(
-			UnetForwardDecodeLayer(192,64, padding=1),
+			UnetForwardDecodeLayer(128,64, padding=1),
 			nn.Conv2d(64, num_classes, kernel_size=1) # final conv 1x1
-		)		
+		)
 
 	def encode_patch(self, x: torch.Tensor):
 		self.x1 = self.encode1(x)
@@ -475,7 +475,7 @@ class FUnet(nn.Module):
 		self.x4_c = self.encode4_c(self.x3_c)
 		self.x5_c = self.encode5_c(self.x4_c)
 		return self.x5_c
-	
+
 	def embedding_fusion(self):
 		N,L,h,w = self.x5.shape
 		D = h*w		
@@ -487,19 +487,19 @@ class FUnet(nn.Module):
 	def decode(self):
 		y1 = self.upscale1(self.fused_features)
 
-		c1 = torch.concat((self.x4, self.x4_c, y1), 1)
+		c1 = torch.concat((self.x4, y1), 1)
 		y2 = self.decode_forward1(c1)
 		
 		y2 = self.upscale2(y2)
-		c2 = torch.concat((self.x3, self.x3_c, y2), 1)
+		c2 = torch.concat((self.x3, y2), 1)
 		y3 = self.decode_forward2(c2)
 
 		y3 = self.upscale3(y3)
-		c3 = torch.concat((self.x2, self.x2_c, functional.center_crop(y3, self.x2.shape[2])), 1)
+		c3 = torch.concat((self.x2, functional.center_crop(y3, self.x2.shape[2])), 1)
 		y4 = self.decode_forward3(c3)
 
 		y4 = self.upscale4(y4)
-		c4 = torch.concat((self.x1, self.x1_c, y4), 1)
+		c4 = torch.concat((self.x1, y4), 1)
 		return self.decode_forward4(c4)
 		
 	def forward(self, x: torch.Tensor, context):
@@ -516,6 +516,7 @@ class DeepLabv3Resnet101(nn.Module):
 		self.wrapper = True
 		self.returns_logits = True
 		self.num_classes = num_classes
+		
 		if pretrained:
 			self.model = deeplabv3_resnet101(weights='COCO_WITH_VOC_LABELS_V1')
 			in_channels = self.model.classifier[4].in_channels
@@ -537,9 +538,9 @@ class DeepLabV3MobileNet(nn.Module):
 		super(DeepLabV3MobileNet, self).__init__()		
 		self.requires_context = False
 		self.wrapper = True
-		self.returns_logits = True
-		
+		self.returns_logits = True		
 		self.num_classes = num_classes
+
 		if pretrained:
 			self.model = deeplabv3_mobilenet_v3_large( weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)
 			in_channels = self.model.classifier[4].in_channels

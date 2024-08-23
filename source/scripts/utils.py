@@ -65,23 +65,14 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 				pbar = tqdm(total=len(dataset.chunk_crops)//batch_size, desc=f'Chunk {c+1}')
 			for i,(x,y,_,context) in enumerate(dl):								
 				x, y = x.to(device), y.to(device)
-				if net.requires_context:
-					context = context.to(device)
-				y_pred = net(x.type(torch.float32), context.type(torch.float32))
-				y_pred = y_pred.squeeze().cpu()
-				if net.returns_logits:
-					_,pred_mask = torch.max(y_pred, dim=0)
-				else: # if model alredy performs argmax (ensemble)
-					pred_mask = y_pred
-				# update global tensor to compute overall mIoU
+				if net.requires_context:context = context.to(device)
+				y_pred = net(x.type(torch.float32), context.type(torch.float32)).squeeze().cpu()
+				pred_mask = y_pred # if model returns indexes, then no need to torch.max
+				if net.returns_logits: _,pred_mask = torch.max(y_pred, dim=0)
 				p = pred_mask.unsqueeze(0).type(torch.int64).reshape(1,-1)
-				t = y.squeeze(1).cpu().type(torch.int64).reshape(1,-1)
-				try:
-					normalized_confusion_metric.update(p, t)
-					flat_confusion_metric.update(p,t)
-				except:
-					print("Something wrong with updating parameters")
-					break
+				t = y.squeeze(1).cpu().type(torch.int64).reshape(1,-1)				
+				normalized_confusion_metric.update(p, t)
+				flat_confusion_metric.update(p,t)
 				if show_progress:
 					pbar.update(1)
 			if show_progress:
@@ -130,30 +121,21 @@ def save_model(epoch, net, opt,scheduler, train_loss, val_loss, macro_precision,
 		'conf_normalized': conf_normalized,
 		'optimizer': optimizer,
 	}, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
-	 
 
-class RandomFlip:
-	def __init__(self, prob=0.5):
-		self.prob = prob
-
-	def __call__(self, img, mask):
-		if random() < self.prob:
-			# Apply horizontal flip
-			img = T.functional.hflip(img)
-			mask = T.functional.hflip(mask)
-		if random() < self.prob:
-			# Apply vertical flip
-			img = T.functional.vflip(img)
-			mask = T.functional.vflip(mask)
-		return img, mask
 	
-def inference(net, dataset, indexes, device, converter, mask_only=False):
+def inference(net,patch_size,dataset, indexes, device, converter, mask_only=False, border_correction=None):
+	crop = T.CenterCrop(patch_size)
 	net.eval()
 	with torch.no_grad():
 		for index in indexes:
-			image,_, mask = dataset[index]
-			image, mask = image.to(device), mask.to(device)
-			output = net(image.unsqueeze(0).type(torch.float32))
+			image,mask,context,padded_patch = dataset[index]
+			image,mask,context = image.to(device), mask.to(device), context.to(device)
+			if border_correction:
+				padded_patch.to(device)
+				output = net(padded_patch.unsqueeze(0).type(torch.float32))
+				output = crop(output)
+			else:
+				output = net(image.unsqueeze(0).type(torch.float32))
 			if net.returns_logits:
 				pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)
 			else:
@@ -244,7 +226,7 @@ def load_loss(config, device, dataset=None):
 		return nn.CrossEntropyLoss(weight=weights, ignore_index=ignore_index)
 	else:
 		raise Exception
-	
+
 def load_dataset(config):
 	return load_gaofen(config['train'], config['validation'], config['test'])
 
@@ -320,8 +302,6 @@ def IoU_ignore_condition(tp, fp, fn):
 def F1_formula(tp, fp, fn):
 	return (2*tp)/(2*tp+fn+fp)
 
-
-
 def _get_class_scores(confusion, formula, ignore_condition):
 	"""
 	Parameters:
@@ -381,11 +361,16 @@ def accuracy(confusion):
 def print_metrics(confusion):
 	t = PrettyTable(['Metric', 'Score'])
 	t.align = "r"
-	t.add_row(['mIoU', IoU(confusion, mean=True)])
-	t.add_row(['mPrec', precision(confusion, macro=True)])
-	t.add_row(['mRec', recall(confusion, macro=True)])
-	t.add_row(['Dice', F1(confusion, mean=True)])
-	t.add_row(['OA', accuracy(confusion)])
+	mIoU_score = IoU(confusion, mean=True)
+	precision_score = precision(confusion, macro=True)
+	recall_score = recall(confusion, macro=True)
+	dice_score = F1(confusion, mean=True)
+	oa_score = accuracy(confusion)
+	t.add_row(['mIoU', mIoU_score])
+	t.add_row(['mPrec', precision_score])
+	t.add_row(['mRec', recall_score])
+	t.add_row(['Dice', dice_score])
+	t.add_row(['OA', oa_score])
 	print(t)
 	iou = PrettyTable(['Class', 'IoU'])
 	iou.align = "r"
@@ -393,7 +378,13 @@ def print_metrics(confusion):
 	for i,score in enumerate(values.tolist()):
 		iou.add_row([labels[i], score])
 	print(f"Excluded classes (not in target): {[el for el in excluded]}")
-	print(iou, flush=True)	
+	print(iou, flush=True)
+	return {'perclass_IoU':values.tolist(),
+		 	'mIoU': mIoU_score, 
+			'precision_score':precision_score,
+			'recall_score:': recall_score,
+			'dice_score': dice_score,
+			'oa_score': oa_score}
 
 def display_configs(configs):
 	t = PrettyTable(['Name', 'Value'])
