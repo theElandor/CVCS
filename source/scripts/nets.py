@@ -586,7 +586,7 @@ class SegformerMod(nn.Module):
     def __init__(self, num_classes, pretrained=True):
         super(SegformerMod, self).__init__()
         self.requires_context = False
-        self.wrapper = False
+        self.wrapper = True
         self.returns_logits = True
 
         self.num_classes = num_classes
@@ -619,3 +619,10 @@ class SegformerMod(nn.Module):
         x = self.preprocessor(x)
         out = self.segformer(x).logits
         return self.seq(out)
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)

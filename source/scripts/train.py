@@ -17,27 +17,17 @@ with open(inFile, "r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 utils.display_configs(config)
 
-# image_transforms, mask_transforms = utils.load_basic_transforms(config)
+image_transforms, mask_transforms = utils.load_basic_transforms(config)
 
-# Loader_train = dataset.Loader(config['train'],
-#                               config['chunk_size'],
-#                               random_shift=True,
-#                               patch_size=config['patch_size'],
-#                               image_transforms=image_transforms,
-#                               mask_transforms=mask_transforms)
-# Loader_validation = dataset.Loader(config['validation'],
-#                                    1,
-#                                    patch_size=config['patch_size'])
-
-image_transforms, geometric_transform = utils.load_basic_transforms(config)
-Loader_train = dataset2.GID15(config['train'], 224, chunk_size=config['chunk_size'], dict_layout=False,
-                              image_transforms=image_transforms, geometric_transforms=geometric_transform,
-                              scale_down=False)
-Loader_validation = dataset2.GID15(config['validation'],
-                                   config['patch_size'],
-                                   1)
-
-
+Loader_train = dataset.Loader(config['train'],
+                              config['chunk_size'],
+                              random_shift=True,
+                              patch_size=config['patch_size'],
+                              image_transforms=image_transforms,
+                              mask_transforms=mask_transforms)
+Loader_validation = dataset.Loader(config['validation'],
+                                   1,
+                                   patch_size=config['patch_size'])
 
 # if config.get('debug'):
 #     Loader_train.specify([0, 1])  # debug, train on 2 images only
@@ -59,14 +49,11 @@ except:
     print("Error in loading network.")
     exit(0)
 
-# t.add_row(['Patch size', Loader_train.patch_size])
-# t.add_row(['Tpe', Loader_train.tpi])
-# t.add_row(['Training patches', len(Loader_train.idxs) * Loader_train.tpi])
-# t.add_row(['Validation patches', len(Loader_validation.idxs) * Loader_validation.tpi])
-t.add_row(['Patch size', Loader_train._patch_shape])
-t.add_row(['Tpe', Loader_train._tpi])
-t.add_row(['Training patches', len(Loader_train._files_idxs) * Loader_train._tpi])
-t.add_row(['Validation patches', len(Loader_validation._files_idxs) * Loader_validation._tpi])
+t.add_row(['Patch size', Loader_train.patch_size])
+t.add_row(['Tpe', Loader_train.tpi])
+t.add_row(['Training patches', len(Loader_train.idxs) * Loader_train.tpi])
+t.add_row(['Validation patches', len(Loader_validation.idxs) * Loader_validation.tpi])
+
 print(t, flush=True)
 
 try:
@@ -117,44 +104,39 @@ else:
 assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid directory to save checkpoints in."
 
 for epoch in range(last_epoch, config['epochs']):
-    print("[{}]Started epoch {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
-    patch_size = random.choice([56, 112, 224])
-    print("[{}]Patch size {}".format(str(datetime.now().time())[:8], patch_size), flush=True)
-    print("[{}]Batch size {}".format(str(datetime.now().time())[:8], config['batch_size'] * ((224 // patch_size) ** 2)),
-          flush=True)
-
-    Loader_train.set_patch_size(patch_size)
-    Loader_train.shuffle()
-    dl = torch.utils.data.DataLoader(Loader_train, batch_size=config['batch_size'] * ((224 // patch_size) ** 2))
-    loss = 0
-    if config['verbose']:
-        pbar = tqdm(total=len(dl), desc=f'Epoch {epoch + 1}')
-    net.train()
-    for batch_index, (image, index_mask, color_mask, _) in enumerate(dl):
-        image, mask = image.to(device), index_mask.to(device)
-        # avoid loading context to GPU if not needed
-        # if net.requires_context:
-        #     context = context.to(device)
-
-        mask_pred = net(image.type(torch.float32)).to(device)
-        loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
-
-        training_loss_values.append(loss.item())
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
+    print("Started epoch {}".format(epoch + 1), flush=True)
+    Loader_train.shuffle()  # shuffle full-sized images
+    for c in range(len(Loader_train)):
+        # if random_tps is specified, then this chunk will contain patches of random size
+        dataset = Loader_train.get_iterable_chunk(c, config.get('random_tps'))
+        dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size'])
         if config['verbose']:
-            pbar.update(1)
-            pbar.set_postfix({'Loss': loss.item()})
-    print(
-        "[{}]Last value of training loss at epoch {} was {}".format(str(datetime.now().time())[:8], epoch, loss.item()))
-    if config['verbose']:
-        pbar.close()
+            pbar = tqdm(total=len(dataset.patches) // config['batch_size'], desc=f'Epoch {epoch + 1}, Chunk {c + 1}')
+        net.train()
+        for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
+            image, mask = image.to(device), index_mask.to(device)
+            # avoid loading context to GPU if not needed
+            if net.requires_context:
+                context = context.to(device)
+            if config.get('debug_plot'):
+                utils.debug_plot(config, epoch, c, batch_index, image, index_mask, context)
+            mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
+            loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
 
+            training_loss_values.append(loss.item())
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            if config['verbose']:
+                pbar.update(1)
+                pbar.set_postfix({'Loss': loss.item()})
+        if config['verbose']:
+            pbar.close()
     scheduler.step()
     print("Running validation...", flush=True)
     validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'],
                                                     show_progress=config['verbose'])
+
     if (epoch + 1) % config['precision_evaluation_freq'] == 0:
         print("Evaluating precision after epoch {}".format(epoch + 1), flush=True)
 

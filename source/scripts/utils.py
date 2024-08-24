@@ -295,7 +295,11 @@ def load_device(config):
 def load_checkpoint(config, net, load_confusion=False):
     if 'load_checkpoint' in config.keys():
         # Load model checkpoint (to resume training)
-        checkpoint = torch.load(config['load_checkpoint'])
+        if config['device'] == 'cpu':
+            checkpoint = torch.load(config['load_checkpoint'], map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(config['load_checkpoint'])
+
         if net.wrapper:
             net.custom_load(checkpoint)
         else:
