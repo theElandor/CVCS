@@ -126,13 +126,13 @@ for epoch in range(last_epoch, config['epochs']):
     if config['verbose']:
         pbar = tqdm(total=len(dl), desc=f'Epoch {epoch + 1}')
     net.train()
-    for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
+    for batch_index, (image, index_mask, color_mask, _) in enumerate(dl):
         image, mask = image.to(device), index_mask.to(device)
         # avoid loading context to GPU if not needed
-        if net.requires_context:
-            context = context.to(device)
+        # if net.requires_context:
+        #     context = context.to(device)
 
-        mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
+        mask_pred = net(image.type(torch.float32)).to(device)
         loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
 
         training_loss_values.append(loss.item())
