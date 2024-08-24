@@ -11,7 +11,7 @@ net: SegformerMod
 epochs: 12
 chunk_size: 5
 patch_size: 224
-batch_size: 16
+batch_size: 32
 verbose: True
 
 freq: 1

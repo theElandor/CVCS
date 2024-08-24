@@ -34,7 +34,7 @@ utils.display_configs(config)
 image_transforms, geometric_transform = utils.load_basic_transforms(config)
 Loader_train = dataset2.GID15(config['train'], 224, chunk_size=config['chunk_size'], dict_layout=False,
                               image_transforms=image_transforms, geometric_transforms=geometric_transform,
-                              scale_down=True)
+                              scale_down=False)
 Loader_validation = dataset2.GID15(config['validation'],
                                    config['patch_size'],
                                    1)
