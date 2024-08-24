@@ -8,3 +8,6 @@ verbose: True
 confusion_matrix: 'confusion.png'
 priors: 'priors.png'
 ignore_background: True
+
+load_context: False
+load_color_mask: False

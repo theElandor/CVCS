@@ -15,7 +15,10 @@ net = utils.load_network(config, device).to(device)
 if 'load_checkpoint' in config.keys(): utils.load_checkpoint(config, net)
 
 # chunk size of 1 for validation and no random shift
-loader = dataset.Loader(config['dataset'], 1, patch_size=config['patch_size'])
+loader = dataset.Loader(config['dataset'], 1, 
+                        patch_size=config['patch_size'],
+                        load_context=config['load_context'],
+                        load_color_mask = config['load_color_mask'])
 if 'images' in config.keys() : loader.specify(config['images'])
 flat, normalized = utils.eval_model(net, 
                                     loader, 

@@ -1,24 +1,36 @@
+#-------------DEBUGGING-----------
 debug: True
-debug_plot: True
-random_tps: [[512, 0.5],[1024, 0.5]]
+debug_plot: False
+verbose: True
 
+#-------------DIRECTORIES------------
 train: D:\Datasets\GID15_test\Train
 validation: D:\Datasets\GID15_test\Validation
 test: D:\Datasets\GID15_test\Test
 checkpoint_directory: D:\weights\test # directory to save checkpoints in
 
+#--------DEVICE--------------
 device: gpu
-augmentation: False
-ignore_background: False
-net: Resnet101
+
+#----NET AND CONTEXT----------
+net: Unetv2
+load_context: False
+
+#-------DATA LOADING----------
 epochs: 100
-chunk_size: 2
+chunk_size: 1
 patch_size: 224
 batch_size: 4
-verbose: True
+augmentation: False
+random_tps: [[512, 0.5],[1024, 0.5]]
 
+# ------LOSS AND OPTIMIZATION----------
 loss: CEL
-opt: ADAM2
+opt: SGD1
+ignore_background: False
+
+#-------ALMOST NEVER TOUCH THESE--------
 freq: 1
 precision_evaluation_freq: 1
 num_classes: 15
+load_color_mask: False

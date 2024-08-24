@@ -4,7 +4,6 @@ from tqdm import tqdm
 import utils
 import yaml
 import sys
-import random
 import dataset
 
 from prettytable import PrettyTable
@@ -22,10 +21,14 @@ Loader_train = dataset.Loader(config['train'],
                               random_shift=True, 
                               patch_size=config['patch_size'],
                               image_transforms=image_transforms,
-                              mask_transforms=mask_transforms)
+                              mask_transforms=mask_transforms,
+                              load_context = config['load_context'],
+                              load_color_mask = config['load_color_mask'])
 Loader_validation = dataset.Loader(config['validation'],
                                    1, 
-                                   patch_size=config['patch_size'])
+                                   patch_size=config['patch_size'],
+                                   load_context = config['load_context'],
+                                   load_color_mask = config['load_color_mask'])
 
 if config.get('debug'):
     Loader_train.specify([0,1]) # debug, train on 2 images only
@@ -99,7 +102,7 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 for epoch in range(last_epoch, config['epochs']):        
     print("Started epoch {}".format(epoch+1), flush=True)    
     Loader_train.shuffle() # shuffle full-sized images
-    for c in range(len(Loader_train)):
+    for c in range(len(Loader_train)):        
         # if random_tps is specified, then this chunk will contain patches of random size
         dataset = Loader_train.get_iterable_chunk(c,config.get('random_tps'))
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
@@ -112,8 +115,7 @@ for epoch in range(last_epoch, config['epochs']):
             if net.requires_context:
                 context = context.to(device)
             if config.get('debug_plot'):
-                utils.debug_plot(epoch, c, batch_index, image, color_mask, context)
-
+                utils.debug_plot(config, epoch, c, batch_index, image, index_mask, context)
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
 

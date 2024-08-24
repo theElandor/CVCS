@@ -104,7 +104,12 @@ class GID15(Dataset):
 	
 
 class IterableChunk(torch.utils.data.IterableDataset):
-	def __init__(self, chunk, images, indexdir, maskdir, image_shape, tpi, random_shift=False, patch_size=224,random_tps=None, iT=None, mT=None):
+	def __init__(self, chunk,
+			  	images, indexdir, maskdir, 
+				image_shape, tpi, patch_size=224,
+				random_shift=False,random_tps=None, iT=None, mT=None,
+				load_context=True, load_color_mask=True
+			  	):
 		super(IterableChunk).__init__()
 		self.indexdir = indexdir
 		self.maskdir = maskdir
@@ -114,7 +119,9 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		self.image_shape = image_shape
 		self.tpi = tpi
 		self.random_shift = random_shift
-		self.random_tps = random_tps
+		self.random_tps = random_tps		
+		self.load_context = load_context
+		self.load_color_mask = load_color_mask
 
 		self.tiles_in_img_shape = (self.image_shape[0] // self.p, self.image_shape[1] // self.p) # (30,32)
 		self.to_load = [images[idx] for idx in chunk]
@@ -144,7 +151,10 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				tly, tlx, self.p)
 
 			#locate, crop and resize context
-			context = _get_context(self.images[target_image], tly, tlx, self.p, self.image_resizer)
+			if self.load_context:
+				context = _get_context(self.images[target_image], tly, tlx, self.p, self.image_resizer)
+			else:
+				context = torch.tensor([0])
 
 			# apply transformations:
 			#1) Apply iT only to Image
@@ -158,6 +168,8 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				index_mask = concatenation[3, :, :]
 				color_mask = concatenation[4:, :, :]
 			# append everything to list
+			if not self.load_color_mask:
+				color_mask = torch.tensor([0])
 			self.patches.append((patch, index_mask.squeeze(), color_mask, context))
 		if self.random_tps:
 			for aug_size, percentage in self.random_tps:
@@ -173,16 +185,18 @@ class IterableChunk(torch.utils.data.IterableDataset):
 						self.color_masks[rand_index],
 						random_y,
 						random_x, 
-						aug_size)
-					context = _get_context(self.images[rand_index], random_y, random_x, self.p, self.image_resizer)
-					self.patches.append((
-						self.image_resizer(patch),
-						self.mask_resizer(index_mask.unsqueeze(0)).squeeze(),
-						self.mask_resizer(color_mask),
-						context
-					))
+						aug_size,
+					)
+					if self.load_context:
+						context = _get_context(self.images[rand_index], random_y, random_x, self.p, self.image_resizer)
+					else:
+						context = torch.tensor([0])
+					patch = self.image_resizer(patch)
+					index_mask = self.mask_resizer(index_mask.unsqueeze(0)).squeeze()
+					color_mask = self.mask_resizer(color_mask) if self.load_color_mask else torch.tensor([0])
+					self.patches.append((patch, index_mask, color_mask, context))
 					random.shuffle(self.patches)
-	
+
 	def load_images(self, names):
 		"""
 		Parameters:
@@ -194,7 +208,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 		"""
 		print("Loading chunk:")
 		for name in names:
-			print(name)
+			print(name, flush=True)
 		images = [tv_tensors.Image(Image.open(name)) for name in names]
 		index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir,Path(name).stem + "_15label.png"))) for name in names]
 		color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir,Path(name).stem + "_15label.tif"))) for name in names]
@@ -221,7 +235,11 @@ class Loader():
 		mask_transforms (torchvision.transforms.v2.transform): transforms to apply on BOTH the image and
 			the mask (actually index mask and color mask).		
 	"""
-	def __init__(self, root, chunk_size=2, random_shift=False, patch_size=224, image_transforms=None, mask_transforms=None):
+	def __init__(self, root, chunk_size=2, 
+			  	random_shift=False, 
+			  	patch_size=224, 
+				image_transforms=None, mask_transforms=None,
+				load_context=True, load_color_mask=True):
 		self.root = root
 		self.patch_size = patch_size
 		self.chunk_size = chunk_size
@@ -229,6 +247,8 @@ class Loader():
 		self.image_transforms = image_transforms
 		self.mask_transforms = mask_transforms
 		self.count = None
+		self.load_context = load_context
+		self.load_color_mask = load_color_mask
 
 		self.imdir = os.path.join(root, "Image__8bit_NirRGB")
 		self.indexdir = os.path.join(root, "Annotation__index")
@@ -284,7 +304,10 @@ class Loader():
 							patch_size=self.patch_size,
 							random_tps=random_tps,
 							iT = self.image_transforms,
-							mT = self.mask_transforms)
+							mT = self.mask_transforms,
+							load_context = self.load_context,
+							load_color_mask = self.load_color_mask
+							)
 
 	def get_chunk(self,idx):
 		"""

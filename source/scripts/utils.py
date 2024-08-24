@@ -220,7 +220,7 @@ def load_loss(config, device, dataset=None):
 		return nn.CrossEntropyLoss(ignore_index=ignore_index)
 	elif name == "wCEL":
 		print("Computing class weights, it might take several minutes...")
-		weights = dataset.get_class_weights(classes)
+		weights = dataset.get_class_weights(classes).to(device)
 		t = PrettyTable(['Class', 'Weight'])
 		for i,score in enumerate(weights):
 			t.add_row([labels[i], score.item()])
@@ -498,25 +498,32 @@ def load_basic_transforms(config):
 		return image_transforms, mask_transforms
 	return None,None
 
-def debug_plot(e,c,i,image,color_mask, context):
+def debug_plot(config, e,c,i,image,index_mask, context):
 	"""
 	Parameters:
+		config: config file
 		e (int): epoch
 		c (int): chunk index
 		i (int): batch index
 		config (config file)
 		image (torch.tensor, dim=B,C,H,W)
-		color_mask (torch.tensor, dim=B,C,H,W)
+		index_mask (torch.tensor, dim=B,C,H,W)
 		context (torch.tensor, dim=B,C,H,W)
 	Function that at the beginning of every epoch plots the first
 	encountered patch with the coresponding color mask and context.
 	Made for debug purposes. Only the first image of the batch is taken.
-	"""		
+	"""
+	converter = GID15Converter()
+	if config['load_context']:
+		pass
 	image = image[0]
-	color_mask = color_mask[0]
+	index_mask = index_mask[0]
 	context = context[0]
-	f, axarr = plt.subplots(1,3)
+	slots = 3 if config['load_context'] else 2
+	f, axarr = plt.subplots(1,slots)
 	axarr[0].imshow(image.permute(1,2,0).cpu())
-	axarr[1].imshow(color_mask.permute(1,2,0).cpu())
-	axarr[2].imshow(context.permute(1,2,0).cpu())
+	test = converter.iconvert(index_mask).cpu()
+	axarr[1].imshow(test)
+	if config['load_context']:
+		axarr[2].imshow(context.permute(1,2,0).cpu())
 	plt.savefig(os.path.join("output", f"epoch{e}_chunk{c}_index{i}.png"))
