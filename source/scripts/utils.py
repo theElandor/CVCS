@@ -225,7 +225,7 @@ def load_optimizer(config, net):
     elif optimizer == 'ADAM1':
         return torch.optim.Adam(net.parameters(), lr=1e-4)
     elif optimizer == 'ADAM2':
-        return torch.optim.Adam(net.parameters(), lr=0.00006)
+        return torch.optim.Adam(net.parameters(), lr=0.05)
     else:
         raise ValueError("Optimizer name not valid.")
 

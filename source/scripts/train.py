@@ -1,15 +1,17 @@
+import random
+
 import torch
 from pathlib import Path
 from tqdm import tqdm
 import utils
 import yaml
 import sys
-import random
-import dataset, dataset2
+import dataset
 from datetime import datetime
 from prettytable import PrettyTable
 import traceback
 from torch.nn import DataParallel
+
 
 inFile = sys.argv[1]
 
@@ -104,14 +106,19 @@ else:
 assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid directory to save checkpoints in."
 
 for epoch in range(last_epoch, config['epochs']):
-    print("Started epoch {}".format(epoch + 1), flush=True)
+    print("[{}]Started epoch {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
     Loader_train.shuffle()  # shuffle full-sized images
+    patch_size = random.choice([56, 112, 224])
+    print("[{}]Patch_size at epoch {} is {}".format(str(datetime.now().time())[:8], epoch + 1, patch_size), flush=True)
+
     for c in range(len(Loader_train)):
+
         # if random_tps is specified, then this chunk will contain patches of random size
-        dataset = Loader_train.get_iterable_chunk(c, config.get('random_tps'))
-        dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size'])
+        dataset = Loader_train.get_iterable_chunk(c, config.get('random_tps'), patch_size=patch_size)
+        dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size'] * (224 // patch_size) ** 2)
         if config['verbose']:
-            pbar = tqdm(total=len(dataset.patches) // config['batch_size'], desc=f'Epoch {epoch + 1}, Chunk {c + 1}')
+            pbar = tqdm(total=len(dataset.patches) // config['batch_size'] * (224 // patch_size) ** 2,
+                        desc=f'Epoch {epoch + 1}, Chunk {c + 1}')
         net.train()
         for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
             image, mask = image.to(device), index_mask.to(device)
@@ -132,13 +139,15 @@ for epoch in range(last_epoch, config['epochs']):
                 pbar.set_postfix({'Loss': loss.item()})
         if config['verbose']:
             pbar.close()
+    print("[{}]Last loss value during Epoch{} was {}".format(str(datetime.now().time())[:8], epoch + 1, loss),
+          flush=True)
     scheduler.step()
-    print("Running validation...", flush=True)
+    print(f"[{str(datetime.now().time())[:8]}]Running validation...", flush=True)
     validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'],
                                                     show_progress=config['verbose'])
 
     if (epoch + 1) % config['precision_evaluation_freq'] == 0:
-        print("Evaluating precision after epoch {}".format(epoch + 1), flush=True)
+        print("[{}]Evaluating precision after epoch {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
 
         flat, normalized = utils.eval_model(net,
                                             Loader_validation,
@@ -163,7 +172,7 @@ for epoch in range(last_epoch, config['epochs']):
                          config['checkpoint_directory'],
                          config['opt']
                          )
-        print("Saved checkpoint {}".format(epoch + 1), flush=True)
+        print("[{}}Saved checkpoint {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
 
 print("Training Done!")
 print(f"Reached training loss: {training_loss_values[-1]}")

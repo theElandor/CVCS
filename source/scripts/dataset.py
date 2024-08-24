@@ -292,13 +292,16 @@ class Loader():
         random.shuffle(self.idxs)
         self.__generate_chunks()
 
-    def get_iterable_chunk(self, idx, random_tps=None):
+    def get_iterable_chunk(self, idx, random_tps=None, patch_size=None):
         """
         Parameters:
             idx (int): index of chunk that you need to pre-load in memory.
         Returns:
             (IterableChunk): iterator on the specified chunk with shuffled patches.
         """
+        if patch_size is not None:
+            self.patch_size = patch_size
+
         return IterableChunk(self.chunks[idx],
                              self.images,
                              self.indexdir,
