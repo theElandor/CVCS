@@ -11,6 +11,8 @@ from prettytable import PrettyTable
 import traceback
 from torch.nn import DataParallel
 
+from source.scripts.dataset import Loader
+
 inFile = sys.argv[1]
 
 with open(inFile, "r") as f:
@@ -36,6 +38,9 @@ Loader_train = dataset2.GID15(config['train'], 224, chunk_size=config['chunk_siz
 Loader_validation = dataset2.GID15(config['validation'],
                                    config['patch_size'],
                                    1)
+
+for i in torch.utils.data.DataLoader(Loader_train, batch_size=64):
+    print(0)
 
 # if config.get('debug'):
 #     Loader_train.specify([0, 1])  # debug, train on 2 images only
@@ -116,8 +121,10 @@ assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid di
 
 for epoch in range(last_epoch, config['epochs']):
     print("[{}]Started epoch {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
-
     patch_size = random.choice([56, 112, 224])
+    print("[{}]Patch size {}".format(str(datetime.now().time())[:8], patch_size), flush=True)
+    print("[{}]Batch size {}".format(str(datetime.now().time())[:8], config['batch_size'] * ((224 // patch_size) ** 2)),
+          flush=True)
 
     Loader_train.set_patch_size(patch_size)
     Loader_train.shuffle()
@@ -142,7 +149,8 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar.update(1)
             pbar.set_postfix({'Loss': loss.item()})
-    print("[{}]Last value of training loss at epoch {} was {}".format(str(datetime.now().time())[:8], epoch, loss))
+    print(
+        "[{}]Last value of training loss at epoch {} was {}".format(str(datetime.now().time())[:8], epoch, loss.item()))
     if config['verbose']:
         pbar.close()
 

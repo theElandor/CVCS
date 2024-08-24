@@ -63,11 +63,11 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
         dl = torch.utils.data.DataLoader(Loader_validation, batch_size=batch_size)
         if show_progress:
             pbar = tqdm(total=len(dl))
-        for i, (x, y, _, context) in enumerate(dl):
+        for i, (x, y, _, _) in enumerate(dl):
             x, y = x.to(device), y.to(device)
-            if net.requires_context:
-                context = context.to(device)
-            y_pred = net(x.type(torch.float32), context.type(torch.float32))
+            # if net.requires_context:
+            #     context = context.to(device)
+            y_pred = net(x.type(torch.float32))
             y_pred = y_pred.squeeze().cpu()
             if net.returns_logits:
                 _, pred_mask = torch.max(y_pred, dim=0)
@@ -100,11 +100,11 @@ def validation_loss(net, Loader_validation, crit, device, batch_size, show_progr
         dl = torch.utils.data.DataLoader(Loader_validation, batch_size=batch_size)
         if show_progress:
             pbar = tqdm(total=len(dl))
-        for image, index_mask, _, context in dl:
+        for image, index_mask, _, _ in dl:
             image, mask = image.to(device), index_mask.to(device)
-            if net.requires_context:
-                context = context.to(device)
-            mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
+            # if net.requires_context:
+            #     context = context.to(device)
+            mask_pred = net(image.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
             loss_values.append(loss.item())
             if show_progress:

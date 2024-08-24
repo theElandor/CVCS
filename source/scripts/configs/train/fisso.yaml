@@ -12,7 +12,7 @@ augmentation: False
 ignore_background: True
 net: SegformerMod
 epochs: 12
-chunk_size: 10
+chunk_size: 1
 patch_size: 224
 batch_size: 4
 verbose: True
