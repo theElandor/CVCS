@@ -8,6 +8,7 @@ from torchvision import tv_tensors
 from PIL import Image
 import numpy as np
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class PatchIterator():
@@ -144,6 +145,86 @@ class GID15(torch.utils.data.IterableDataset):
         print("[{}]Loaded chunk...{}".format(str(datetime.now().time())[:8], start // self._win_size), file=sys.stderr)
         return self._patches
 
+    def _load_chunk2(self, start, end):
+        print("[{}]Loading chunk...{}".format(str(datetime.now().time())[:8], start // self._win_size), file=sys.stderr)
+
+        if self._dict_layout:
+            self._patches = [{} for _ in range(self.__len__())]
+        else:
+            self._patches = [None for _ in range(self.__len__())]
+
+        _last_chunk_loaded = start // self._win_size
+        _files_path = [self._files[i] for i in
+                       self._files_idxs[_last_chunk_loaded * self._chunk_size: (
+                               _last_chunk_loaded * self._chunk_size + self._chunk_size)]]
+
+        def load_and_process_image(i):
+            img_path = os.path.join(self._img_dir, _files_path[i] + '.tif')
+            idx_mask_path = os.path.join(self._index_dir, _files_path[i] + '_15label.png')
+            color_mask_path = os.path.join(self._mask_dir, _files_path[i] + '_15label.tif')
+
+            image = tv_tensors.Image(Image.open(img_path))
+            index_mask = tv_tensors.Image(Image.open(idx_mask_path))
+            color_mask = tv_tensors.Image(Image.open(color_mask_path))
+
+            patches = []
+            _offset_x, _offset_y = 0, 0
+            for ii in range(self._tpi):
+                _rnd_x = torch.randint(-20, 21, (1,)).item()
+                _rnd_y = torch.randint(-20, 21, (1,)).item()
+                __patch_shape = self._patch_shape if not self._scale_down else self._patch_shape * self._scale_factor
+                patch = v2.functional.crop(image, np.clip(_offset_y + _rnd_y, 0, 6800),
+                                           np.clip(_offset_x + _rnd_x, 0, 7200),
+                                           __patch_shape,
+                                           __patch_shape)
+                patch_mask = v2.functional.crop(color_mask, np.clip(_offset_y + _rnd_y, 0, 6800),
+                                                np.clip(_offset_x + _rnd_x, 0, 7200),
+                                                __patch_shape,
+                                                __patch_shape)
+                patch_idxs = v2.functional.crop(index_mask, np.clip(_offset_y + _rnd_y, 0, 6800),
+                                                np.clip(_offset_x + _rnd_x, 0, 7200),
+                                                __patch_shape,
+                                                __patch_shape)
+                if self._image_transforms is not None:
+                    patch = self._image_transforms(patch)
+
+                if self._geometric_transforms is not None:
+                    concatenation = torch.concat((patch, patch_idxs, patch_mask), dim=0)
+                    concatenation = self._geometric_transforms(concatenation)
+                    patch = concatenation[:3, :, :]
+                    patch_idxs = concatenation[3, :, :]
+                    patch_mask = concatenation[4:, :, :]
+
+                if self._scale_down:
+                    patch = v2.functional.resize(patch, size=self._patch_shape,
+                                                 interpolation=v2.InterpolationMode.BILINEAR)
+                    patch_mask = v2.functional.resize(patch_mask, size=self._patch_shape,
+                                                      interpolation=v2.InterpolationMode.NEAREST_EXACT)
+                    patch_idxs = v2.functional.resize(patch_idxs, size=self._patch_shape,
+                                                      interpolation=v2.InterpolationMode.NEAREST_EXACT)
+
+                if self._dict_layout:
+                    patches.append({'pixel_values': patch.float(), 'labels': patch_idxs.squeeze(0).long(),
+                                    'label_ids': patch_mask})
+                else:
+                    patches.append((patch, patch_idxs, patch_mask,
+                                    self._get_context(image, np.clip(_offset_y + _rnd_y, 0, 6800),
+                                                      np.clip(_offset_x + _rnd_x, 0, 7200), self._patch_shape)))
+
+                _offset_x += self._patch_shape
+                if _offset_x >= self._image_shape[1]:
+                    _offset_x = 0
+                    _offset_y += self._patch_shape
+            return patches
+
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(load_and_process_image, i) for i in range(self._chunk_size)]
+            for i, future in enumerate(as_completed(futures)):
+                self._patches[start + i] = future.result()
+
+        print("[{}]Loaded chunk...{}".format(str(datetime.now().time())[:8], start // self._win_size), file=sys.stderr)
+        return self._patches
+
     def _get_context(self, image, tly, tlx, p):
         c_tly = tly - p
         c_tlx = tlx - p
@@ -152,7 +233,7 @@ class GID15(torch.utils.data.IterableDataset):
         return context
 
     def __iter__(self):
-        return PatchIterator(self._patches, self._chunk_size, self._load_chunk)
+        return PatchIterator(self._patches, self._chunk_size, self._load_chunk2)
 
     # def __getitem__(self, index):
     #     if self._patches[index] == {} or self._patches[index] == None:

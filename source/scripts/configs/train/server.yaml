@@ -20,3 +20,4 @@ opt: ADAM2
 loss: CEL
 num_classes: 15
 ignore_background: True
+parallel: True

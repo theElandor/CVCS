@@ -9,6 +9,7 @@ import dataset, dataset2
 from datetime import datetime
 from prettytable import PrettyTable
 import traceback
+from torch.nn import DataParallel
 
 inFile = sys.argv[1]
 
@@ -45,6 +46,11 @@ device = utils.load_device(config)
 t = PrettyTable(['Name', 'Value'])
 try:
     net = utils.load_network(config, device)
+    if config['parallel']:
+        net = DataParallel(net)
+        for i in range(torch.cuda.device_count()):
+            t.add_row([f"GPU{i}", torch.cuda.get_device_name(i)])
+        device = "cuda" if device.type.__contains__("cuda") else device
     t.add_row(['parameters', utils.count_params(net)])
 except:
     traceback.print_exc()

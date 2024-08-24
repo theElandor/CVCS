@@ -12,7 +12,7 @@ augmentation: False
 ignore_background: True
 net: SegformerMod
 epochs: 12
-chunk_size: 1
+chunk_size: 10
 patch_size: 224
 batch_size: 4
 verbose: True
@@ -22,3 +22,4 @@ opt: ADAM2
 freq: 1
 precision_evaluation_freq: 4
 num_classes: 15
+parallel: True
