@@ -11,8 +11,6 @@ from prettytable import PrettyTable
 import traceback
 from torch.nn import DataParallel
 
-from source.scripts.dataset import Loader
-
 inFile = sys.argv[1]
 
 with open(inFile, "r") as f:
