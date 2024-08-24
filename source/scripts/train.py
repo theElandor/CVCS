@@ -39,8 +39,7 @@ Loader_validation = dataset2.GID15(config['validation'],
                                    config['patch_size'],
                                    1)
 
-for i in torch.utils.data.DataLoader(Loader_train, batch_size=64):
-    print(0)
+
 
 # if config.get('debug'):
 #     Loader_train.specify([0, 1])  # debug, train on 2 images only
