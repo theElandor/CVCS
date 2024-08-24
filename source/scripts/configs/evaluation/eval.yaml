@@ -11,3 +11,4 @@ ignore_background: True
 
 load_context: False
 load_color_mask: False
+ensemble_config: "test.yaml"
