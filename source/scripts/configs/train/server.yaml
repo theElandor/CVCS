@@ -12,10 +12,11 @@ epochs: 12
 chunk_size: 10
 patch_size: 224
 batch_size: 16
-verbose: False
+verbose: True
 
 freq: 1
 precision_evaluation_freq: 4
 opt: ADAM2
 loss: CEL
 num_classes: 15
+ignore_background: True

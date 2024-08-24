@@ -135,7 +135,7 @@ for epoch in range(last_epoch, config['epochs']):
         opt.step()
         if config['verbose']:
             pbar.update(1)
-            pbar.set_postfix({'Loss': loss.item()} )
+            pbar.set_postfix({'Loss': loss.item()})
     print("[{}]Last value of training loss at epoch {} was {}".format(str(datetime.now().time())[:8], epoch, loss))
     if config['verbose']:
         pbar.close()

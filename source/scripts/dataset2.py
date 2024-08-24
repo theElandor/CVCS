@@ -1,17 +1,14 @@
 import os
 import sys
-
 import torch.utils.data
 import torch
 from pathlib import Path
-
-from PIL.ImageOps import scale
-from sympy.codegen.ast import stderr
 from torchvision.transforms import v2
 from torchvision import tv_tensors
 from PIL import Image
 import numpy as np
 from datetime import datetime
+
 
 class PatchIterator():
     def __init__(self, patches, chunk_size, load_func):
@@ -38,6 +35,8 @@ class PatchIterator():
         self.index += 1
 
         return patch
+
+
 
 
 class GID15(torch.utils.data.IterableDataset):
@@ -176,3 +175,5 @@ class GID15(torch.utils.data.IterableDataset):
         self._resize = v2.Resize(self._patch_shape)
         self._tpi = (self._image_shape[0] // self._patch_shape) * (
                 self._image_shape[1] // self._patch_shape)
+
+
