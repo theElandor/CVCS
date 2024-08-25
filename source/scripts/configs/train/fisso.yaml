@@ -1,6 +1,6 @@
 debug: True
 debug_plot: False
-random_tps: [[512, 0.5],[1024, 0.5]]
+random_tps: [[512, 0.25],[1024, 0.25]]
 
 train: /home/nicola/CVCS/dataset/GID15/Train
 validation: /home/nicola/CVCS/dataset/GID15/Validation
@@ -9,7 +9,6 @@ checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save check
 
 device: cpu
 augmentation: False
-ignore_background: True
 net: SegformerMod
 epochs: 12
 chunk_size: 1
@@ -22,4 +21,5 @@ opt: ADAM2
 freq: 1
 precision_evaluation_freq: 4
 num_classes: 15
+ignore_background: True
 parallel: True

@@ -141,6 +141,8 @@ class IterableChunk(torch.utils.data.IterableDataset):
         # still need to shuffle chunk_crops
         self.patches = []  # list of tuples (image_crop, index_crop, mask_crop, context_crop)
         for x in self.chunk_crops:
+
+
             target_image = x // self.tpi
             tile_idx = x % self.tpi
             tile_pos = (tile_idx // self.tiles_in_img_shape[1], tile_idx % self.tiles_in_img_shape[1])
@@ -230,6 +232,9 @@ class IterableChunk(torch.utils.data.IterableDataset):
     def show_patch(self, index):
         plt.imshow(self.patches[index].permute(1, 2, 0))
         plt.show()
+
+    def __len__(self):
+        return self.patches.__len__()
 
 
 class Loader():

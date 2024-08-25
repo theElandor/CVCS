@@ -12,7 +12,6 @@ from prettytable import PrettyTable
 import traceback
 from torch.nn import DataParallel
 
-
 inFile = sys.argv[1]
 
 with open(inFile, "r") as f:
@@ -40,8 +39,8 @@ device = utils.load_device(config)
 t = PrettyTable(['Name', 'Value'])
 try:
     net = utils.load_network(config, device)
+    net = DataParallel(net)
     if config['parallel'] and device == 'cuda:0':
-        net = DataParallel(net)
         for i in range(torch.cuda.device_count()):
             t.add_row([f"GPU{i}", torch.cuda.get_device_name(i)])
         device = "cuda"
@@ -109,15 +108,16 @@ for epoch in range(last_epoch, config['epochs']):
     print("[{}]Started epoch {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
     Loader_train.shuffle()  # shuffle full-sized images
     patch_size = random.choice([56, 112, 224])
+    _batch_size = (config['batch_size'] * ((224 // patch_size) ** 2))
     print("[{}]Patch_size at epoch {} is {}".format(str(datetime.now().time())[:8], epoch + 1, patch_size), flush=True)
 
     for c in range(len(Loader_train)):
 
         # if random_tps is specified, then this chunk will contain patches of random size
         dataset = Loader_train.get_iterable_chunk(c, config.get('random_tps'), patch_size=patch_size)
-        dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size'] * (224 // patch_size) ** 2)
+        dl = torch.utils.data.DataLoader(dataset, batch_size=_batch_size)
         if config['verbose']:
-            pbar = tqdm(total=len(dataset.patches) // config['batch_size'] * (224 // patch_size) ** 2,
+            pbar = tqdm(total=len(dl),
                         desc=f'Epoch {epoch + 1}, Chunk {c + 1}')
         net.train()
         for batch_index, (image, index_mask, color_mask, _) in enumerate(dl):
