@@ -10,7 +10,7 @@ checkpoint_directory:  /homes/nmorelli/checkpoints/segformer
 device: gpu
 net: SegformerMod
 epochs: 12
-chunk_size: 10
+chunk_size: 5
 patch_size: 224
 batch_size: 16
 verbose: True
