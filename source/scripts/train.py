@@ -59,7 +59,7 @@ except:
     exit(0)
 try:
     opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt)    
+    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)
 except:
     print("Error in loading optimizer")
     exit(0)

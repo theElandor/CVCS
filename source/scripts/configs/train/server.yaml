@@ -1,22 +1,36 @@
+#-------------DEBUGGING-----------
+debug: False
+debug_plot: False
+verbose: False
+
+#-------------DIRECTORIES------------
 train: /work/cvcs2024/MSseg/Train
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
-checkpoint_directory:  /homes/mlugli/checkpoints/test6
+checkpoint_directory:  /homes/mlugli/checkpoints/test8
 
-random_tps: [[512, 0.5],[1024, 0.5]]
-augmentation: False
-ignore_background: False
-
+#--------DEVICE--------------
 device: gpu
+
+#----NET AND CONTEXT----------
 net: Unetv2
+load_context: False
+
+#-------DATA LOADING----------
 epochs: 20
 chunk_size: 5
 patch_size: 224
-batch_size: 4
-verbose: False
+batch_size: 10
+augmentation: False
+#random_tps: [[512, 0.5],[1024, 0.5]]
 
+# ------LOSS AND OPTIMIZATION----------
+loss: CEL
+opt: SGD1
+ignore_background: False
+
+#-------ALMOST NEVER TOUCH THESE--------
 freq: 1
 precision_evaluation_freq: 1
-opt: SGD1
-loss: CEL
 num_classes: 15
+load_color_mask: False
