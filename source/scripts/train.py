@@ -25,7 +25,7 @@ Loader_train = dataset.Loader(config['train'],
                               load_context = config['load_context'],
                               load_color_mask = config['load_color_mask'])
 Loader_validation = dataset.Loader(config['validation'],
-                                   1, 
+                                   5,
                                    patch_size=config['patch_size'],
                                    load_context = config['load_context'],
                                    load_color_mask = config['load_color_mask'])
@@ -129,6 +129,7 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar.close()
     scheduler.step()
+    dataset = dl = None # free memory
     print("Running validation...", flush=True)
     validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
 
