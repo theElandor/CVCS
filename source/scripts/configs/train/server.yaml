@@ -1,16 +1,16 @@
 debug: True
 debug_plot: False
-random_tps: [[512, 0.5],[1024, 0.5]]
+random_tps: [ [ 510, 0.25 ],[ 350, 0.25 ] ]
 
-train: /work/cvcs2024/MSseg/Train
+train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
 checkpoint_directory:  /homes/nmorelli/checkpoints/segformer
 
 device: gpu
 net: SegformerMod
-epochs: 12
-chunk_size: 5
+epochs: 64
+chunk_size: 168
 patch_size: 224
 batch_size: 16
 verbose: True

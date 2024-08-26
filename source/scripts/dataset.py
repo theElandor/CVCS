@@ -220,7 +220,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
         # for name in names:
         # 	print(name)
         images = [tv_tensors.Image(Image.open(name)) for name in names]
-        index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir, Path(name).stem + "_15label.png"))) for
+        index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir, Path(name).stem + "_15label.png")))[0].unsqueeze(0) for
                        name in names]
         color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir, Path(name).stem + "_15label.tif"))) for
                        name in names]
