@@ -177,7 +177,7 @@ for epoch in range(last_epoch, config['epochs']):
                          config['checkpoint_directory'],
                          config['opt']
                          )
-        print("[{}}Saved checkpoint {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
+        print("[{}]Saved checkpoint {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
 
 print("Training Done!")
 print(f"Reached training loss: {training_loss_values[-1]}")
