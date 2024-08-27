@@ -65,7 +65,7 @@ except:
     exit(0)
 try:
     opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt)
+    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=2.0)
 except:
     print("Error in loading optimizer")
     exit(0)
@@ -105,12 +105,17 @@ else:
 assert Path(config['checkpoint_directory']).is_dir(), "Please provide a valid directory to save checkpoints in."
 
 for epoch in range(last_epoch, config['epochs']):
-    print("[{}]Started epoch {}".format(str(datetime.now().time())[:8], epoch + 1), flush=True)
+    _epoch_t = PrettyTable(['Name', 'Value'])
+    _epoch_t.add_row(['Time', str(datetime.now().time())[:8]])
+    _epoch_t.add_row(['Epoch', str(epoch + 1)])
+
     Loader_train.shuffle()  # shuffle full-sized images
     patch_size = random.choice([56, 112, 224])
     _batch_size = (config['batch_size'] * ((224 // patch_size) ** 2))
-    print("[{}]Patch_size at epoch {} is {}".format(str(datetime.now().time())[:8], epoch + 1, patch_size), flush=True)
-
+    _epoch_t.add_row(['Patch_size', patch_size])
+    _epoch_t.add_row(['batch_size', _batch_size])
+    _epoch_t.add_row(['lr', scheduler.get_last_lr()])
+    print(_epoch_t, flush=True)
     for c in range(len(Loader_train)):
 
         # if random_tps is specified, then this chunk will contain patches of random size
