@@ -225,8 +225,8 @@ def load_loss(config, device, dataset=None):
 	if name == "CEL":
 		return nn.CrossEntropyLoss(ignore_index=ignore_index)
 	elif name == "wCEL":
-		print("Computing class weights, it might take several minutes...")
-		weights = dataset.get_class_weights(classes).to(device)
+		print("Computing class weights, it might take several minutes...", flush=True)
+		weights = dataset.get_class_weights(classes, ignore_background).to(device)
 		t = PrettyTable(['Class', 'Weight'])
 		for i,score in enumerate(weights):
 			t.add_row([labels[i], score.item()])

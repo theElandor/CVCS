@@ -4,10 +4,10 @@ debug_plot: False
 verbose: False
 
 #-------------DIRECTORIES------------
-train: /work/cvcs2024/MSseg/Train
+train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
-checkpoint_directory:  /homes/mlugli/checkpoints/test8
+checkpoint_directory:  /homes/mlugli/checkpoints/test10
 
 #--------DEVICE--------------
 device: gpu
@@ -17,17 +17,18 @@ net: Unetv2
 load_context: False
 
 #-------DATA LOADING----------
-epochs: 20
-chunk_size: 5
+epochs: 50
+chunk_size: 1680
+validation_chunk_size: 10
 patch_size: 224
 batch_size: 10
 augmentation: False
 #random_tps: [[512, 0.5],[1024, 0.5]]
 
 # ------LOSS AND OPTIMIZATION----------
-loss: CEL
-opt: SGD1
-ignore_background: False
+loss: wCEL
+opt: SGD2
+ignore_background: True
 
 #-------ALMOST NEVER TOUCH THESE--------
 freq: 1
