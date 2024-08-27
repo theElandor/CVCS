@@ -11,7 +11,7 @@ device: cpu
 augmentation: False
 net: SegformerMod
 epochs: 12
-chunk_size: 168
+chunk_size: 336
 patch_size: 224
 batch_size: 4
 verbose: True

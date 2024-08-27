@@ -60,33 +60,35 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
                                                             ignore_index=ignored_index)
     flat_confusion_metric = MulticlassConfusionMatrix(num_classes=16, ignore_index=ignored_index)
     with torch.no_grad():
-        dl = torch.utils.data.DataLoader(Loader_validation, batch_size=batch_size)
-        if show_progress:
-            pbar = tqdm(total=len(dl))
-        for i, (x, y, _, _) in enumerate(dl):
-            x, y = x.to(device), y.to(device)
-            # if net.requires_context:
-            #     context = context.to(device)
-            y_pred = net(x.type(torch.float32))
-            y_pred = y_pred.squeeze().cpu()
-            if net.returns_logits:
-                _, pred_mask = torch.max(y_pred, dim=0)
-            else:  # if model alredy performs argmax (ensemble)
-                pred_mask = y_pred
-            # update global tensor to compute overall mIoU
-            p = pred_mask.unsqueeze(0).type(torch.int64).reshape(1, -1)
-            t = y.squeeze(1).cpu().type(torch.int64).reshape(1, -1)
-            try:
-                normalized_confusion_metric.update(p, t)
-                flat_confusion_metric.update(p, t)
-            except:
-                print("Something wrong with updating parameters")
-                break
+        for c in range(len(Loader_validation)):
+            dataset = Loader_validation.get_iterable_chunk(c)
+            dl = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
             if show_progress:
-                pbar.update(1)
-        if show_progress:
-            pbar.close()
-        print("Updating confusion matrix...")
+                pbar = tqdm(total=len(dl), desc=f'Chunk {c + 1}')
+            for i, (x, y, _, _) in enumerate(dl):
+                x, y = x.to(device), y.to(device)
+                # if net.requires_context:
+                #     context = context.to(device)
+                y_pred = net(x.type(torch.float32))
+                y_pred = y_pred.squeeze().cpu()
+                if net.returns_logits:
+                    _, pred_mask = torch.max(y_pred, dim=0)
+                else:  # if model alredy performs argmax (ensemble)
+                    pred_mask = y_pred
+                # update global tensor to compute overall mIoU
+                p = pred_mask.unsqueeze(0).type(torch.int64).reshape(1, -1)
+                t = y.squeeze(1).cpu().type(torch.int64).reshape(1, -1)
+                try:
+                    normalized_confusion_metric.update(p, t)
+                    flat_confusion_metric.update(p, t)
+                except:
+                    print("Something wrong with updating parameters")
+                    break
+                if show_progress:
+                    pbar.update(1)
+            if show_progress:
+                pbar.close()
+            print("Updating confusion matrix...")
     if show_progress:
         pbar.close()
     # return confusion matrix
@@ -97,21 +99,22 @@ def validation_loss(net, Loader_validation, crit, device, batch_size, show_progr
     loss_values = []
     net.eval()
     with torch.no_grad():
-        dl = torch.utils.data.DataLoader(Loader_validation, batch_size=batch_size)
-        if show_progress:
-            pbar = tqdm(total=len(dl))
-        for image, index_mask, _, _ in dl:
-            image, mask = image.to(device), index_mask.to(device)
-            # if net.requires_context:
-            #     context = context.to(device)
-            mask_pred = net(image.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
-            loss_values.append(loss.item())
+        for c in range(len(Loader_validation)):
+            dataset = Loader_validation.get_iterable_chunk(c)
+            dl = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
             if show_progress:
-                pbar.update(1)
-        if show_progress:
-            pbar.close()
-
+                pbar = tqdm(total=len(dl), desc=f'Chunk {c + 1}')
+            for image, index_mask, _, _ in dl:
+                image, mask = image.to(device), index_mask.to(device)
+                # if net.requires_context:
+                #     context = context.to(device)
+                mask_pred = net(image.type(torch.float32)).to(device)
+                loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
+                loss_values.append(loss.item())
+                if show_progress:
+                    pbar.update(1)
+            if show_progress:
+                pbar.close()
     return loss_values
 
 
