@@ -9,9 +9,9 @@ checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save check
 
 device: cpu
 augmentation: False
-net: SegformerMod
+net: Resnet101
 epochs: 12
-chunk_size: 1680
+chunk_size: 168
 patch_size: 224
 batch_size: 4
 verbose: True

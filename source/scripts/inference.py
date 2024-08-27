@@ -43,7 +43,7 @@ utils.inference(net, dataset, indexes, device, c, mask_only=mask_only)
 
 if 'out_image' in config.keys():
     files = os.listdir("output")
-    sample = ToTensor()(Image.open(os.path.join("output", files[0])))
+    sample = ToTensor()(Image.open(os.path.join("output", files[1])))
     p = sample.shape[1]
     Wn = 7200//p
     Hn = 6800//p

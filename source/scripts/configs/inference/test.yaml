@@ -1,5 +1,5 @@
 net: SegformerMod
-load_checkpoint: /home/nicola/Desktop/checkpoints/segformer/checkpoint1
+load_checkpoint: /home/nicola/Desktop/checkpoints/segformer/checkpoint12
 #dataset: D:\Datasets\GID15\gid-15\GID\Validation
 dataset: /home/nicola/CVCS/dataset/GID15/Test
 num_classes: 15
@@ -9,7 +9,7 @@ mask_only: True
 # if mask_only is set to False the plot will contain the original
 # image, the original mask and the predicted mask
 # otherwise it will only contain the predicted mask
-range: [0,960] # if range is specified, the model will segment the patches in the specified bounds.
+range: [0, 960] # if range is specified, the model will segment the patches in the specified bounds.
 # otherwise, it will segment the whole specified dataset.
 out_image: "/home/nicola/CVCS/source/scripts/output/test.png" #generated images will be put in a grid to get a full-size prediction
 
