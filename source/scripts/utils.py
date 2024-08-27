@@ -200,7 +200,13 @@ def count_params(net):
 def load_optimizer(config, net):
 	optimizer = config['opt']
 	if optimizer == 'SGD1':
-		return torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.00001)
+		opt = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.00001)
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt)
+		return opt, sched
+	if optimizer == 'SGD2':
+		opt = torch.optim.SGD(net.parameters(), lr=0.006, momentum=0.9, weight_decay=0.00001)
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)
+		return opt, sched
 	elif optimizer == 'ADAM1':
 		return torch.optim.Adam(net.parameters(), lr=1e-4)
 	elif optimizer == 'ADAM2':

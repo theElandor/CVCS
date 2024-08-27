@@ -27,8 +27,8 @@ augmentation: False
 
 # ------LOSS AND OPTIMIZATION----------
 loss: CEL
-opt: SGD1
-ignore_background: False
+opt: SGD2
+ignore_background: True
 
 #-------ALMOST NEVER TOUCH THESE--------
 freq: 1

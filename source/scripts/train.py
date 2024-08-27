@@ -58,10 +58,9 @@ except:
     print("Error in loading loss module.")
     exit(0)
 try:
-    opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt)
+    opt,scheduler = utils.load_optimizer(config, net)
 except:
-    print("Error in loading optimizer")
+    print("Error in loading optimizer and scheduler")
     exit(0)
 
 
@@ -73,14 +72,17 @@ conf_flat=              [] # store unnormalized confusion matrix after each epoc
 conf_normalized=        [] # store normalized confusion matrix after each epoch
 
 if  'load_checkpoint' in config.keys():
-    # Load model checkpoint (to resume training)    
+    # Load model checkpoint (to resume training)
     checkpoint = torch.load(config['load_checkpoint'])
     if net.wrapper:
         net.custom_load(checkpoint)
     else:
         net.load_state_dict(checkpoint['model_state_dict'])    
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
-    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    try:
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    except:
+        print("Scheduler not found in the checkpoint.")
     last_epoch = checkpoint['epoch']+1
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
@@ -128,7 +130,8 @@ for epoch in range(last_epoch, config['epochs']):
                 pbar.set_postfix({'Loss': loss.item()})
         if config['verbose']:
             pbar.close()
-    scheduler.step()
+    if scheduler:
+        scheduler.step()
     dataset = dl = None # free memory
     print("Running validation...", flush=True)
     validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])

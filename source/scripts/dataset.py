@@ -207,8 +207,11 @@ class IterableChunk(torch.utils.data.IterableDataset):
 			color_masks (list): List of pre-loaded color masks
 		"""
 		print("Loading chunk:")
-		for name in names:
+		for i, name in enumerate(names):
 			print(name, flush=True)
+			if i == 5:
+				print("...\nOutput is collapsed. More then 5 images are being loaded!")
+				break
 		images = [tv_tensors.Image(Image.open(name)) for name in names]
 		index_masks = [tv_tensors.Mask(Image.open(os.path.join(self.indexdir,Path(name).stem + "_15label.png"))) for name in names]
 		color_masks = [tv_tensors.Mask(Image.open(os.path.join(self.maskdir,Path(name).stem + "_15label.tif"))) for name in names]
