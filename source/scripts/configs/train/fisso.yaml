@@ -4,11 +4,11 @@ debug_plot: False
 verbose: True
 
 #-------------DIRECTORIES------------
-train: D:\Datasets\GID15_urban\GID15\Train
+train: D:\Datasets\Patches_512x512
 validation: D:\Datasets\GID15_urban\GID15\Validation
 test: D:\Datasets\GID15_urban\GID15\Test
-checkpoint_directory: D:\weights\test\urban # directory to save checkpoints in
-load_checkpoint: D:\weights\test\urban\checkpoint20
+checkpoint_directory: D:\weights\test\balanced
+#load_checkpoint: D:\weights\test\urban\checkpoint20
 #--------DEVICE--------------
 device: gpu
 
@@ -17,10 +17,11 @@ net: Unetv2
 load_context: False
 
 #-------DATA LOADING----------
-epochs: 40
-chunk_size: 20
+epochs: 50
+chunk_size: 1680
+validation_chunk_size: 5
 patch_size: 224
-batch_size: 4
+batch_size: 10
 augmentation: False
 #random_tps: [[512, 0.5],[1024, 0.5]]
 

@@ -25,7 +25,7 @@ Loader_train = dataset.Loader(config['train'],
                               load_context = config['load_context'],
                               load_color_mask = config['load_color_mask'])
 Loader_validation = dataset.Loader(config['validation'],
-                                   5,
+                                   config['validation_chunk_size'],
                                    patch_size=config['patch_size'],
                                    load_context = config['load_context'],
                                    load_color_mask = config['load_color_mask'])
@@ -59,7 +59,7 @@ except:
     exit(0)
 try:
     opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)
+    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt)
 except:
     print("Error in loading optimizer")
     exit(0)
@@ -117,7 +117,7 @@ for epoch in range(last_epoch, config['epochs']):
             if config.get('debug_plot'):
                 utils.debug_plot(config, epoch, c, batch_index, image, index_mask, context)
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
+            loss = crit(mask_pred, mask[:, 0, :, :].type(torch.long))
 
             training_loss_values.append(loss.item())
             opt.zero_grad()
