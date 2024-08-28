@@ -27,6 +27,7 @@ flat, normalized = utils.eval_model(net,
                                     1,
                                     show_progress=config['verbose'],
                                     ignore_background=config['ignore_background'])
+
 confusion = flat.compute()
 utils.print_metrics(confusion)
 # plot normalized confusion matrix
