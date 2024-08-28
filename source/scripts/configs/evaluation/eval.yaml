@@ -5,7 +5,7 @@ dataset: /work/cvcs2024/MSseg/Test
 #dataset: /home/nicola/CVCS/dataset/GID15/Test
 num_classes: 15
 patch_size: 1024
-device: cpu
+device: gpu
 verbose: True
 confusion_matrix: '/homes/nmorelli/output/confusion.png'
 priors: '/homes/nmorelli/output/priors.png'
