@@ -11,7 +11,7 @@ device: gpu
 augmentation: True
 net: SegformerMod
 epochs: 64
-chunk_size: 1680
+chunk_size: 168
 patch_size: 224
 batch_size: 16
 verbose: True
@@ -22,4 +22,5 @@ freq: 1
 precision_evaluation_freq: 4
 num_classes: 15
 ignore_background: True
-parallel: True
+load_context: False
+load_color_mask: False

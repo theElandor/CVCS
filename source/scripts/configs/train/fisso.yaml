@@ -22,4 +22,5 @@ freq: 1
 precision_evaluation_freq: 4
 num_classes: 15
 ignore_background: True
-parallel: True
+load_context: False
+load_color_mask: False
