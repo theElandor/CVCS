@@ -92,3 +92,13 @@
   Wether or not to ignore the background class (index = 0)
   Background will not be considered even when evaluating the model
   during training.
+
++ load_context <bool>
+  Set this to True if your network requires context around the patch.
+  If set to False, the data loader will not crop and save Context
+  to optimize performance and memory uage.
+
++ load_color_mask <bool>
+  Set this to True if you need the color_mask for plotting purposes.
+  If set to False, the data loader will not crop and save the
+  color mask to optimize performance and memory usage.

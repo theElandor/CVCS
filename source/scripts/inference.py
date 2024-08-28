@@ -15,30 +15,26 @@ with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 utils.display_configs(config)
 
+c = converters.GID15Converter()
+p = config.get('patch_size')
+bc = config.get('border_correction')
+root = config.get('dataset')
+
 device = utils.load_device(config)
+net = utils.load_network(config, device).to(device)
+utils.load_checkpoint(config, net) if 'load_checkpoint' in config.keys() else None
+    
 
-try:
-    net = utils.load_network(config, device).to(device)
-except:
-    print("Error in loading network.")
-    exit(0)
-
-if 'load_checkpoint' in config.keys():
-    utils.load_checkpoint(config, net)
-p = config['patch_size']
-dataset = GID15(config['dataset'], (p, p))
+dataset = GID15(root, (p, p), color_masks=True, border_correction=bc)
 
 if 'range' in config.keys():
     lb, ub = config['range']
     indexes = [_ for _ in range(lb, ub)]
-else:    
-    indexes = [_ for _ in range(len(dataset))]
-c = converters.GID15Converter()
-if 'mask_only' in config.keys():
-    mask_only = config['mask_only']
 else:
-    mask_only = False
-utils.inference(net, dataset, indexes, device, c, mask_only=mask_only)
+    indexes = [_ for _ in range(len(dataset))]
+
+mask_only = config['mask_only'] if 'mask_only' in config.keys() else False
+utils.inference(net,p, dataset, indexes, device, c, mask_only=mask_only, border_correction=bc)
 
 
 if 'out_image' in config.keys():
