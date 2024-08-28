@@ -57,8 +57,8 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
     # shape: N x H x W (960x224x224)
     ignored_index = 0 if ignore_background else None
     normalized_confusion_metric = MulticlassConfusionMatrix(num_classes=16, normalize='true',
-                                                            ignore_index=ignored_index)
-    flat_confusion_metric = MulticlassConfusionMatrix(num_classes=16, ignore_index=ignored_index)
+                                                            ignore_index=ignored_index).to(device)
+    flat_confusion_metric = MulticlassConfusionMatrix(num_classes=16, ignore_index=ignored_index).to(device)
     with torch.no_grad():
         for c in range(len(Loader_validation)):
             dataset = Loader_validation.get_iterable_chunk(c)
@@ -70,7 +70,7 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
                 # if net.requires_context:
                 #     context = context.to(device)
                 y_pred = net(x.type(torch.float32))
-                # y_pred = y_pred.squeeze().cpu()
+                # y_pred = y_pred.squeeze()
                 if net.returns_logits:
                     _, pred_mask = torch.max(y_pred, dim=1)
                 else:  # if model alredy performs argmax (ensemble)
