@@ -1,14 +1,14 @@
-net: Resnet101
-load_checkpoint: D:\weights\checkpoint12
-#dataset: D:\Datasets\GID15\gid-15\GID\Validation
-dataset: D:\Datasets\GID25\Validation
-num_classes: 15
-patch_size: 224
+dataset: D:\Datasets\GID15\gid-15\GID\Validation
 device: gpu
+
+net: Unetv2
+load_checkpoint: D:\weights\test\balanced\UnetNoBack\checkpoint50
+patch_size: 224
+border_correction: 256
+
+range: [0,960]
+
 mask_only: True
-# if mask_only is set to False the plot will contain the original
-# image, the original mask and the predicted mask
-# otherwise it will only contain the predicted mask
-range: [0,960] # if range is specified, the model will segment the patches in the specified bounds.
-# otherwise, it will segment the whole specified dataset.
-out_image: "test.png" #generated images will be put in a grid to get a full-size prediction
+out_image: "map.png"
+ensemble_config: 'test.yaml'
+num_classes: 15

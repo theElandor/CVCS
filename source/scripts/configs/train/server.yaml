@@ -1,17 +1,37 @@
-train: /work/cvcs2024/MSseg/Train
-validation: /work/cvcs2024/MSseg/Validation
-test: /work/cvcs2024/MSseg/Test
-device: gpu
-checkpoint_directory:  /homes/mlugli/checkpoints/test
-net: FUnet
-epochs: 20
-chunk_size: 10
-patch_size: 224
-batch_size: 4
+#-------------DEBUGGING-----------
+debug: False
+debug_plot: False
 verbose: False
 
+#-------------DIRECTORIES------------
+train: /work/cvcs2024/MSseg/Patches_512x512
+validation: /work/cvcs2024/MSseg/Validation
+test: /work/cvcs2024/MSseg/Test
+checkpoint_directory:  /homes/mlugli/checkpoints/test10
+
+#--------DEVICE--------------
+device: gpu
+
+#----NET AND CONTEXT----------
+net: Unetv2
+load_context: False
+
+#-------DATA LOADING----------
+epochs: 50
+chunk_size: 1680
+validation_chunk_size: 10
+patch_size: 224
+batch_size: 10
+augmentation: False
+#random_tps: [[512, 0.5],[1024, 0.5]]
+
+# ------LOSS AND OPTIMIZATION----------
+loss: wCEL
+opt: SGD2
+ignore_background: True
+
+#-------ALMOST NEVER TOUCH THESE--------
 freq: 1
 precision_evaluation_freq: 1
-opt: SGD1
-loss: CEL
 num_classes: 15
+load_color_mask: False

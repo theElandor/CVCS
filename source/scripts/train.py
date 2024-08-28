@@ -4,7 +4,6 @@ from tqdm import tqdm
 import utils
 import yaml
 import sys
-import random
 import dataset
 
 from prettytable import PrettyTable
@@ -18,14 +17,18 @@ utils.display_configs(config)
 image_transforms, mask_transforms = utils.load_basic_transforms(config)
 
 Loader_train = dataset.Loader(config['train'],
-                              config['chunk_size'], 
+                              config['chunk_size'],
                               random_shift=True, 
                               patch_size=config['patch_size'],
                               image_transforms=image_transforms,
-                              mask_transforms=mask_transforms)
+                              mask_transforms=mask_transforms,
+                              load_context = config['load_context'],
+                              load_color_mask = config['load_color_mask'])
 Loader_validation = dataset.Loader(config['validation'],
-                                   1, 
-                                   patch_size=config['patch_size'])
+                                   config['validation_chunk_size'],
+                                   patch_size=config['patch_size'],
+                                   load_context = config['load_context'],
+                                   load_color_mask = config['load_color_mask'])
 
 if config.get('debug'):
     Loader_train.specify([0,1]) # debug, train on 2 images only
@@ -55,10 +58,9 @@ except:
     print("Error in loading loss module.")
     exit(0)
 try:
-    opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt)    
+    opt,scheduler = utils.load_optimizer(config, net)
 except:
-    print("Error in loading optimizer")
+    print("Error in loading optimizer and scheduler")
     exit(0)
 
 
@@ -70,14 +72,17 @@ conf_flat=              [] # store unnormalized confusion matrix after each epoc
 conf_normalized=        [] # store normalized confusion matrix after each epoch
 
 if  'load_checkpoint' in config.keys():
-    # Load model checkpoint (to resume training)    
+    # Load model checkpoint (to resume training)
     checkpoint = torch.load(config['load_checkpoint'])
     if net.wrapper:
         net.custom_load(checkpoint)
     else:
         net.load_state_dict(checkpoint['model_state_dict'])    
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
-    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    try:
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    except:
+        print("Scheduler not found in the checkpoint.")
     last_epoch = checkpoint['epoch']+1
     training_loss_values = checkpoint['training_loss_values']
     validation_loss_values = checkpoint['validation_loss_values']
@@ -101,25 +106,20 @@ for epoch in range(last_epoch, config['epochs']):
     Loader_train.shuffle() # shuffle full-sized images
     for c in range(len(Loader_train)):        
         # if random_tps is specified, then this chunk will contain patches of random size
-        if 'random_tps' in config.keys():
-            p = random.choice(config['random_tps'])
-        else:
-            p = None # keep default patch size
-        dataset = Loader_train.get_iterable_chunk(c, p)
+        dataset = Loader_train.get_iterable_chunk(c,config.get('random_tps'))
         dl = torch.utils.data.DataLoader(dataset, batch_size=config['batch_size']) 
         if config['verbose']:
-            pbar = tqdm(total=len(dataset.chunk_crops)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
+            pbar = tqdm(total=len(dataset.patches)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
         for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
             image, mask = image.to(device), index_mask.to(device)            
             # avoid loading context to GPU if not needed
             if net.requires_context:
                 context = context.to(device)
-            if config.get('debug_plot') and c == 0 and batch_index == 0:
-                utils.debug_plot(epoch, c, batch_index, image, color_mask, context)
-
+            if config.get('debug_plot'):
+                utils.debug_plot(config, epoch, c, batch_index, image, index_mask, context)
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
+            loss = crit(mask_pred, mask[:, 0, :, :].type(torch.long))
 
             training_loss_values.append(loss.item())
             opt.zero_grad()
@@ -130,7 +130,9 @@ for epoch in range(last_epoch, config['epochs']):
                 pbar.set_postfix({'Loss': loss.item()})
         if config['verbose']:
             pbar.close()
-    scheduler.step()
+    if scheduler:
+        scheduler.step()
+    dataset = dl = None # free memory
     print("Running validation...", flush=True)
     validation_loss_values += utils.validation_loss(net, Loader_validation, crit, device, config['batch_size'], show_progress=config['verbose'])
 

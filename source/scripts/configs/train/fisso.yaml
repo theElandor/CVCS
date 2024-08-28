@@ -1,21 +1,37 @@
-debug: True
-
-train: D:\Datasets\GID15\gid-15\GID\Train
-validation: D:\Datasets\GID15\gid-15\GID\Validation
-test: D:\Datasets\GID15\gid-15\GID\Test
-checkpoint_directory: D:\weights\test # directory to save checkpoints in
+#-------------DEBUGGING-----------
+debug: False
 debug_plot: False
-device: gpu
-augmentation: True
-ignore_background: True
-net: Unetv2
-epochs: 20
-chunk_size: 2
-patch_size: 224
-batch_size: 4
 verbose: True
-loss: wCEL
-opt: SGD1
+
+#-------------DIRECTORIES------------
+train: D:\Datasets\Patches_512x512
+validation: D:\Datasets\GID15_urban\GID15\Validation
+test: D:\Datasets\GID15_urban\GID15\Test
+checkpoint_directory: D:\weights\test\balanced
+#load_checkpoint: D:\weights\test\urban\checkpoint20
+#--------DEVICE--------------
+device: gpu
+
+#----NET AND CONTEXT----------
+net: Unetv2
+load_context: False
+
+#-------DATA LOADING----------
+epochs: 50
+chunk_size: 1680
+validation_chunk_size: 5
+patch_size: 224
+batch_size: 10
+augmentation: False
+#random_tps: [[512, 0.5],[1024, 0.5]]
+
+# ------LOSS AND OPTIMIZATION----------
+loss: CEL
+opt: SGD2
+ignore_background: True
+
+#-------ALMOST NEVER TOUCH THESE--------
 freq: 1
 precision_evaluation_freq: 1
 num_classes: 15
+load_color_mask: False

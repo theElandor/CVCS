@@ -65,23 +65,14 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
 				pbar = tqdm(total=len(dataset.chunk_crops)//batch_size, desc=f'Chunk {c+1}')
 			for i,(x,y,_,context) in enumerate(dl):								
 				x, y = x.to(device), y.to(device)
-				if net.requires_context:
-					context = context.to(device)
-				y_pred = net(x.type(torch.float32), context.type(torch.float32))
-				y_pred = y_pred.squeeze().cpu()
-				if net.returns_logits:
-					_,pred_mask = torch.max(y_pred, dim=0)
-				else: # if model alredy performs argmax (ensemble)
-					pred_mask = y_pred
-				# update global tensor to compute overall mIoU
+				if net.requires_context:context = context.to(device)
+				y_pred = net(x.type(torch.float32), context.type(torch.float32)).squeeze().cpu()
+				pred_mask = y_pred # if model returns indexes, then no need to torch.max
+				if net.returns_logits: _,pred_mask = torch.max(y_pred, dim=0)
 				p = pred_mask.unsqueeze(0).type(torch.int64).reshape(1,-1)
-				t = y.squeeze(1).cpu().type(torch.int64).reshape(1,-1)
-				try:
-					normalized_confusion_metric.update(p, t)
-					flat_confusion_metric.update(p,t)
-				except:
-					print("Something wrong with updating parameters")
-					break
+				t = y.squeeze(1).cpu().type(torch.int64).reshape(1,-1)				
+				normalized_confusion_metric.update(p, t)
+				flat_confusion_metric.update(p,t)
 				if show_progress:
 					pbar.update(1)
 			if show_progress:
@@ -107,7 +98,7 @@ def validation_loss(net, Loader_validation, crit, device, bs, show_progress=Fals
 				if net.requires_context:
 					context = context.to(device)
 				mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-				loss = crit(mask_pred, mask.squeeze(1).type(torch.long))
+				loss = crit(mask_pred, mask.squeeze(1).type(torch.long))				
 				loss_values.append(loss.item())
 				if show_progress:
 					pbar.update(1)                
@@ -130,30 +121,20 @@ def save_model(epoch, net, opt,scheduler, train_loss, val_loss, macro_precision,
 		'conf_normalized': conf_normalized,
 		'optimizer': optimizer,
 	}, os.path.join(checkpoint_dir, "checkpoint{}".format(epoch+1)))
-	 
 
-class RandomFlip:
-	def __init__(self, prob=0.5):
-		self.prob = prob
-
-	def __call__(self, img, mask):
-		if random() < self.prob:
-			# Apply horizontal flip
-			img = T.functional.hflip(img)
-			mask = T.functional.hflip(mask)
-		if random() < self.prob:
-			# Apply vertical flip
-			img = T.functional.vflip(img)
-			mask = T.functional.vflip(mask)
-		return img, mask
 	
-def inference(net, dataset, indexes, device, converter, mask_only=False):
+def inference(net,patch_size,dataset, indexes, device, converter, mask_only=False, border_correction=None):
+	crop = T.CenterCrop(patch_size)
 	net.eval()
 	with torch.no_grad():
 		for index in indexes:
-			image,_, mask = dataset[index]
-			image, mask = image.to(device), mask.to(device)
-			output = net(image.unsqueeze(0).type(torch.float32))
+			image,mask,context,padded_patch = dataset[index]
+			image,mask,context, padded_patch = image.to(device), mask.to(device), context.to(device), padded_patch.to(device)
+			if border_correction:				
+				output = net(padded_patch.unsqueeze(0).type(torch.float32))
+				output = crop(output)
+			else:
+				output = net(image.unsqueeze(0).type(torch.float32))
 			if net.returns_logits:
 				pred_index = torch.argmax(output.squeeze().permute(1,2,0).cpu(), dim=2)
 			else:
@@ -218,9 +199,19 @@ def count_params(net):
 def load_optimizer(config, net):
 	optimizer = config['opt']
 	if optimizer == 'SGD1':
-		return torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.90, weight_decay=0.0005)
+		opt = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.00001)
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt)
+		return opt, sched
+	if optimizer == 'SGD2':
+		opt = torch.optim.SGD(net.parameters(), lr=0.006, momentum=0.9, weight_decay=0.00001)
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)
+		return opt, sched
 	elif optimizer == 'ADAM1':
 		return torch.optim.Adam(net.parameters(), lr=1e-4)
+	elif optimizer == 'ADAM2':
+		return torch.optim.Adam(net.parameters(), lr=0.00006)
+	elif optimizer == 'ADAM3':
+		return torch.optim.Adam(net.parameters(), lr=0.00001)
 	else:
 		raise ValueError("Optimizer name not valid.")
 
@@ -233,9 +224,8 @@ def load_loss(config, device, dataset=None):
 	if name == "CEL":
 		return nn.CrossEntropyLoss(ignore_index=ignore_index)
 	elif name == "wCEL":
-		print("Computing class weights, it might take several minutes...")
-		priors = dataset.get_priors(classes, ignore_background=ignore_background).to(device)
-		weights = 1-priors
+		print("Computing class weights, it might take several minutes...", flush=True)
+		weights = dataset.get_class_weights(classes, ignore_background).to(device)
 		t = PrettyTable(['Class', 'Weight'])
 		for i,score in enumerate(weights):
 			t.add_row([labels[i], score.item()])
@@ -243,7 +233,7 @@ def load_loss(config, device, dataset=None):
 		return nn.CrossEntropyLoss(weight=weights, ignore_index=ignore_index)
 	else:
 		raise Exception
-	
+
 def load_dataset(config):
 	return load_gaofen(config['train'], config['validation'], config['test'])
 
@@ -319,8 +309,6 @@ def IoU_ignore_condition(tp, fp, fn):
 def F1_formula(tp, fp, fn):
 	return (2*tp)/(2*tp+fn+fp)
 
-
-
 def _get_class_scores(confusion, formula, ignore_condition):
 	"""
 	Parameters:
@@ -380,11 +368,16 @@ def accuracy(confusion):
 def print_metrics(confusion):
 	t = PrettyTable(['Metric', 'Score'])
 	t.align = "r"
-	t.add_row(['mIoU', IoU(confusion, mean=True)])
-	t.add_row(['mPrec', precision(confusion, macro=True)])
-	t.add_row(['mRec', recall(confusion, macro=True)])
-	t.add_row(['Dice', F1(confusion, mean=True)])
-	t.add_row(['OA', accuracy(confusion)])
+	mIoU_score = IoU(confusion, mean=True)
+	precision_score = precision(confusion, macro=True)
+	recall_score = recall(confusion, macro=True)
+	dice_score = F1(confusion, mean=True)
+	oa_score = accuracy(confusion)
+	t.add_row(['mIoU', mIoU_score])
+	t.add_row(['mPrec', precision_score])
+	t.add_row(['mRec', recall_score])
+	t.add_row(['Dice', dice_score])
+	t.add_row(['OA', oa_score])
 	print(t)
 	iou = PrettyTable(['Class', 'IoU'])
 	iou.align = "r"
@@ -392,7 +385,13 @@ def print_metrics(confusion):
 	for i,score in enumerate(values.tolist()):
 		iou.add_row([labels[i], score])
 	print(f"Excluded classes (not in target): {[el for el in excluded]}")
-	print(iou, flush=True)	
+	print(iou, flush=True)
+	return {'perclass_IoU':values.tolist(),
+		 	'mIoU': mIoU_score, 
+			'precision_score':precision_score,
+			'recall_score:': recall_score,
+			'dice_score': dice_score,
+			'oa_score': oa_score}
 
 def display_configs(configs):
 	t = PrettyTable(['Name', 'Value'])
@@ -504,25 +503,32 @@ def load_basic_transforms(config):
 		return image_transforms, mask_transforms
 	return None,None
 
-def debug_plot(e,c,i,image,color_mask, context):
+def debug_plot(config, e,c,i,image,index_mask, context):
 	"""
 	Parameters:
+		config: config file
 		e (int): epoch
 		c (int): chunk index
 		i (int): batch index
 		config (config file)
 		image (torch.tensor, dim=B,C,H,W)
-		color_mask (torch.tensor, dim=B,C,H,W)
+		index_mask (torch.tensor, dim=B,C,H,W)
 		context (torch.tensor, dim=B,C,H,W)
 	Function that at the beginning of every epoch plots the first
 	encountered patch with the coresponding color mask and context.
 	Made for debug purposes. Only the first image of the batch is taken.
-	"""		
+	"""
+	converter = GID15Converter()
+	if config['load_context']:
+		pass
 	image = image[0]
-	color_mask = color_mask[0]
+	index_mask = index_mask[0]
 	context = context[0]
-	f, axarr = plt.subplots(1,3)
+	slots = 3 if config['load_context'] else 2
+	f, axarr = plt.subplots(1,slots)
 	axarr[0].imshow(image.permute(1,2,0).cpu())
-	axarr[1].imshow(color_mask.permute(1,2,0).cpu())
-	axarr[2].imshow(context.permute(1,2,0).cpu())
+	test = converter.iconvert(index_mask).cpu()
+	axarr[1].imshow(test)
+	if config['load_context']:
+		axarr[2].imshow(context.permute(1,2,0).cpu())
 	plt.savefig(os.path.join("output", f"epoch{e}_chunk{c}_index{i}.png"))

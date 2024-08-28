@@ -1,5 +1,5 @@
 net: Unetv2
-load_checkpoint: D:\weights\checkpoint8
+load_checkpoint: D:\weights\test\balanced\UnetNoBackWeighted\checkpoint50
 dataset: D:\Datasets\GID15\gid-15\GID\Validation
 num_classes: 15
 patch_size: 224
@@ -7,4 +7,8 @@ device: gpu
 verbose: True
 confusion_matrix: 'confusion.png'
 priors: 'priors.png'
-ensemble_config: 'test.yaml'
+ignore_background: True
+
+load_context: False
+load_color_mask: False
+ensemble_config: "test.yaml"

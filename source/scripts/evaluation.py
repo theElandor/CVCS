@@ -9,18 +9,17 @@ inFile = sys.argv[1]
 with open(inFile,"r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 utils.display_configs(config)
+
 device = utils.load_device(config)
-try:
-    net = utils.load_network(config, device).to(device)
-except:
-    print("Error in loading network.")
-    exit(0)
-if 'load_checkpoint' in config:
-    utils.load_checkpoint(config, net)
+net = utils.load_network(config, device).to(device)
+if 'load_checkpoint' in config.keys(): utils.load_checkpoint(config, net)
+
 # chunk size of 1 for validation and no random shift
-loader = dataset.Loader(config['dataset'], 1, patch_size=config['patch_size'])
-if 'images' in config.keys():
-    loader.specify(config['images'])
+loader = dataset.Loader(config['dataset'], 1, 
+                        patch_size=config['patch_size'],
+                        load_context=config['load_context'],
+                        load_color_mask = config['load_color_mask'])
+if 'images' in config.keys() : loader.specify(config['images'])
 flat, normalized = utils.eval_model(net, 
                                     loader, 
                                     device, 

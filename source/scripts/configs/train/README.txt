@@ -68,8 +68,13 @@
   This patch size will be used in training, validation and evaluation loops
 
 + random_tps: <list of int>
-  Random patch size to pick from during training loop.
-  Might slow down training.
+  example: [[512,0.5], [1024, 1]]
+  In this example we "augment" each chunk with random cropped 512x512 and 1024x1024 patches
+  that are then rescaled to default patch size. We call these patches "augmented patches".
+  You can specify for each size how many augmented patches you want to add: in this case,
+  we add 50% of the original dataset size of 512x512 augmented patches and 100% of the
+  original dataset size of 1024x1024 augmented patches.
+  Context is cropped and returned accordingly, following the same rules of standard patches.
 
 + augmentation: <bool>
   If set to True, some basic data augmentation random
@@ -77,7 +82,7 @@
 
 + debug_plot: <bool>
   If set to True, the training procedure will call the 
-  debug_plot function at the beginning of every epoch.
+  debug_plot function at each iteration.
   The function plots the path, color mask and context
   of the first sample found in the batch.
   Made for debug purposes.
@@ -87,3 +92,13 @@
   Wether or not to ignore the background class (index = 0)
   Background will not be considered even when evaluating the model
   during training.
+
++ load_context <bool>
+  Set this to True if your network requires context around the patch.
+  If set to False, the data loader will not crop and save Context
+  to optimize performance and memory uage.
+
++ load_color_mask <bool>
+  Set this to True if you need the color_mask for plotting purposes.
+  If set to False, the data loader will not crop and save the
+  color mask to optimize performance and memory usage.
