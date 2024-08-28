@@ -11,7 +11,8 @@ device: gpu
 augmentation: True
 net: SegformerMod
 epochs: 64
-chunk_size: 168patch_size: 224
+chunk_size: 168
+patch_size: 224
 batch_size: 16
 verbose: True
 
