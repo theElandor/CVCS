@@ -8,9 +8,9 @@ test: /work/cvcs2024/MSseg/Test
 checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/resnet101
 
 device: gpu
-net: Resnet101
+net: SegformerMod
 epochs: 64
-chunk_size: 168
+chunk_size: 1680
 patch_size: 224
 batch_size: 16
 verbose: True
