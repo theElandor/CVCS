@@ -70,9 +70,9 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
                 # if net.requires_context:
                 #     context = context.to(device)
                 y_pred = net(x.type(torch.float32))
-                y_pred = y_pred.squeeze().cpu()
+                # y_pred = y_pred.squeeze().cpu()
                 if net.returns_logits:
-                    _, pred_mask = torch.max(y_pred, dim=0)
+                    _, pred_mask = torch.max(y_pred, dim=1)
                 else:  # if model alredy performs argmax (ensemble)
                     pred_mask = y_pred
                 # update global tensor to compute overall mIoU

@@ -273,7 +273,7 @@ class Loader():
 
         self.idxs = [_ for _ in range(len(self.images))]
         self.chunks = None
-        assert patch_size in [224, 256, 512], "Patch size either not supported or not recommended"
+        assert patch_size in [224, 256, 512, 1024, 2048], "Patch size either not supported or not recommended"
         assert len(self.images) % self.chunk_size == 0, "Number of images not divisible by chunk size."
         self.__generate_chunks()
 

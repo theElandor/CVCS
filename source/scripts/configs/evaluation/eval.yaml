@@ -4,7 +4,7 @@ load_checkpoint: /homes/nmorelli/checkpoints/deeplabv3/resnet101/checkpoint64
 dataset: /work/cvcs2024/MSseg/Test
 #dataset: /home/nicola/CVCS/dataset/GID15/Test
 num_classes: 15
-patch_size: 224
+patch_size: 1024
 device: cpu
 verbose: True
 confusion_matrix: '/homes/nmorelli/output/confusion.png'

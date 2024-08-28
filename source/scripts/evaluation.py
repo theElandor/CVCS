@@ -18,13 +18,13 @@ except:
 if 'load_checkpoint' in config:
     utils.load_checkpoint(config, net)
 # chunk size of 1 for validation and no random shift
-loader = dataset.Loader(config['dataset'], 5, patch_size=config['patch_size'])
+loader = dataset.Loader(config['dataset'], 10, patch_size=config['patch_size'])
 if 'images' in config.keys():
     loader.specify(config['images'])
 flat, normalized = utils.eval_model(net, 
                                     loader, 
                                     device, 
-                                    1,
+                                    4,
                                     show_progress=config['verbose'],
                                     ignore_background=config['ignore_background'])
 confusion = flat.compute()
