@@ -8,6 +8,7 @@ test: /work/cvcs2024/MSseg/Test
 checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/resnet101
 
 device: gpu
+augmentation: True
 net: SegformerMod
 epochs: 64
 chunk_size: 1680
