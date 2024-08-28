@@ -1,10 +1,10 @@
 net: Resnet101
-#load_checkpoint: /homes/nmorelli/checkpoints/deeplabv3/resnet101/checkpoint64
-load_checkpoint: /home/nicola/Desktop/checkpoints/deeplabv3/resnet101/checkpoint64
-#dataset: /work/cvcs2024/MSseg/Test
-dataset: /home/nicola/CVCS/dataset/GID15/Test
-#device: gpu
-device: cpu
+load_checkpoint: /homes/nmorelli/checkpoints/deeplabv3/resnet101/checkpoint64
+#load_checkpoint: /home/nicola/Desktop/checkpoints/deeplabv3/resnet101/checkpoint64
+dataset: /work/cvcs2024/MSseg/Test
+#dataset: /home/nicola/CVCS/dataset/GID15/Test
+device: gpu
+#device: cpu
 num_classes: 15
 patch_size: 1024
 verbose: True
