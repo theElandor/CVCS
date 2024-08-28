@@ -551,7 +551,7 @@ class DeepLabv3Resnet101(nn.Module):
         checkpoint_state_dict = checkpoint['model_state_dict']
         for item in checkpoint_state_dict:
             checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
-        self.model.load_state_dict(checkpoint_state_dict_mod)
+        self.load_state_dict(checkpoint_state_dict_mod)
 
 
 class DeepLabV3MobileNet(nn.Module):
