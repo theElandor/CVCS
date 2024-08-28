@@ -129,9 +129,8 @@ def inference(net,patch_size,dataset, indexes, device, converter, mask_only=Fals
 	with torch.no_grad():
 		for index in indexes:
 			image,mask,context,padded_patch = dataset[index]
-			image,mask,context = image.to(device), mask.to(device), context.to(device)
-			if border_correction:
-				padded_patch.to(device)
+			image,mask,context, padded_patch = image.to(device), mask.to(device), context.to(device), padded_patch.to(device)
+			if border_correction:				
 				output = net(padded_patch.unsqueeze(0).type(torch.float32))
 				output = crop(output)
 			else:

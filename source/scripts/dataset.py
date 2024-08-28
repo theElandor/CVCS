@@ -18,9 +18,8 @@ def _get_context(image:torch.tensor, tly:int, tlx:int, p:int, resizer:v2.transfo
 def _get_padded_patch(image:torch.tensor, tly:int, tlx:int, patch_shape:tuple, border_correction:int):
 	margin = (border_correction - patch_shape[0])
 	c_tly = tly-margin
-	c_tlx = tlx-margin
-	h = w = patch_shape[0] + (2*margin)
-	patch = v2.functional.crop(image, c_tly, c_tlx, h, w)
+	c_tlx = tlx-margin	
+	patch = v2.functional.crop(image, c_tly, c_tlx, border_correction, border_correction)
 	return patch
 
 def _random_shift(tly:int, tlx:int, offset:int):
@@ -91,7 +90,7 @@ class GID15(Dataset):
 		if self.border_correction:
 			padded_patch=_get_padded_patch(self.last_image, tly, tlx, self.patch_shape, self.border_correction)
 		else:
-			padded_patch = None
+			padded_patch = torch.tensor([0])
 		context = _get_context(self.last_image, tly,tlx, self.patch_shape[0], self.resize)
 
 		return (tif_img, mask_img, context, padded_patch)
