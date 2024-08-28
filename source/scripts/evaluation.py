@@ -24,7 +24,7 @@ if 'images' in config.keys():
 flat, normalized = utils.eval_model(net, 
                                     loader, 
                                     device, 
-                                    1,
+                                    4,
                                     show_progress=config['verbose'],
                                     ignore_background=config['ignore_background'])
 

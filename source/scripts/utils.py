@@ -77,7 +77,7 @@ def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False
                     pred_mask = y_pred
                 # update global tensor to compute overall mIoU
                 p = pred_mask.unsqueeze(0).type(torch.int64).reshape(1, -1)
-                t = y.squeeze(1).cpu().type(torch.int64).reshape(1, -1)
+                t = y.squeeze(1).type(torch.int64).reshape(1, -1)
                 try:
                     normalized_confusion_metric.update(p, t)
                     flat_confusion_metric.update(p, t)
