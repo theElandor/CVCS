@@ -313,20 +313,20 @@ class Loader():
             Returns:
                 (IterableChunk): iterator on the specified chunk with shuffled patches.
             """
-            return IterableChunk(self.chunks[idx],
-                                 self.images,
-                                 self.indexdir,
-                                 self.maskdir,
-                                 image_shape=self.image_shape,
-                                 tpi=self.__get_tpi(self.patch_size),
-                                 random_shift=self.random_shift,
-                                 patch_size=self.patch_size,
-                                 random_tps=random_tps,
-                                 iT=self.image_transforms,
-                                 mT=self.mask_transforms,
-                                 load_context=self.load_context,
-                                 load_color_mask=self.load_color_mask
-                                 )
+        return IterableChunk(self.chunks[idx],
+                             self.images,
+                             self.indexdir,
+                             self.maskdir,
+                             image_shape=self.image_shape,
+                             tpi=self.__get_tpi(self.patch_size),
+                             random_shift=self.random_shift,
+                             patch_size=self.patch_size,
+                             random_tps=random_tps,
+                             iT=self.image_transforms,
+                             mT=self.mask_transforms,
+                             load_context=self.load_context,
+                             load_color_mask=self.load_color_mask
+                             )
 
     def get_chunk(self, idx):
         """
