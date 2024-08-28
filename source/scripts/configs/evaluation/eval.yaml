@@ -1,5 +1,5 @@
-net: Resnet101
-load_checkpoint: /homes/nmorelli/checkpoints/deeplabv3/resnet101/checkpoint57
+net: SegformerMod
+load_checkpoint: /homes/nmorelli/checkpoints/segformer/checkpoint63
 #load_checkpoint: /home/nicola/Desktop/checkpoints/deeplabv3/resnet101/checkpoint64
 dataset: /work/cvcs2024/MSseg/Validation
 #dataset: /home/nicola/CVCS/dataset/GID15/Test
