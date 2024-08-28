@@ -24,7 +24,7 @@ if 'images' in config.keys():
 flat, normalized = utils.eval_model(net, 
                                     loader, 
                                     device, 
-                                    4,
+                                    1,
                                     show_progress=config['verbose'],
                                     ignore_background=config['ignore_background'])
 confusion = flat.compute()
