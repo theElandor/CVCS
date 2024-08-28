@@ -1,5 +1,5 @@
 net: Resnet101
-load_checkpoint: /home/nicola/Desktop/checkpoints/deeplabv3/resnet101/checkpoint12
+load_checkpoint: /home/nicola/Desktop/checkpoints/deeplabv3/resnet101/checkpoint64
 #dataset: D:\Datasets\GID15\gid-15\GID\Validation
 dataset: /home/nicola/CVCS/dataset/GID15/Test
 num_classes: 15
