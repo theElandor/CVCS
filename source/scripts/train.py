@@ -111,15 +111,15 @@ for epoch in range(last_epoch, config['epochs']):
         if config['verbose']:
             pbar = tqdm(total=len(dataset.patches)//config['batch_size'], desc=f'Epoch {epoch+1}, Chunk {c+1}')
         net.train()
-        for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):
-            image, mask = image.to(device), index_mask.to(device)            
+        for batch_index, (image, index_mask, color_mask, context) in enumerate(dl):            
+            image, mask = image.to(device), utils.mask_reshape(index_mask.to(device))
             # avoid loading context to GPU if not needed
             if net.requires_context:
                 context = context.to(device)
             if config.get('debug_plot'):
                 utils.debug_plot(config, epoch, c, batch_index, image, index_mask, context)
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
-            loss = crit(mask_pred, mask[:, 0, :, :].type(torch.long))
+            loss = crit(mask_pred, mask.type(torch.long))
 
             training_loss_values.append(loss.item())
             opt.zero_grad()

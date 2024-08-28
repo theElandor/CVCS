@@ -161,7 +161,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 				patch = self.iT(patch)
 			#2) Apply mT to both Image and Mask
 			if self.mT != None:
-				concatenation = torch.concat((patch, index_mask, color_mask), dim=0)
+				concatenation = torch.concat((patch, index_mask[0].unsqueeze(0), color_mask), dim=0)
 				concatenation = self.mT(concatenation)
 				patch = concatenation[:3, :,:]
 				index_mask = concatenation[3, :, :]
@@ -192,6 +192,7 @@ class IterableChunk(torch.utils.data.IterableDataset):
 						context = torch.tensor([0])
 					patch = self.image_resizer(patch)
 					index_mask = self.mask_resizer(index_mask.unsqueeze(0)).squeeze()
+					if len(index_mask.shape) == 3: index_mask = index_mask[0]
 					color_mask = self.mask_resizer(color_mask) if self.load_color_mask else torch.tensor([0])
 					self.patches.append((patch, index_mask, color_mask, context))
 					random.shuffle(self.patches)

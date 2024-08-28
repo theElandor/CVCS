@@ -1,10 +1,11 @@
 #-------------DEBUGGING-----------
 debug: False
-debug_plot: False
+debug_plot: True
 verbose: True
 
 #-------------DIRECTORIES------------
 train: D:\Datasets\Patches_512x512
+#train: D:\Datasets\GID15_urban\GID15\Train
 validation: D:\Datasets\GID15_urban\GID15\Validation
 test: D:\Datasets\GID15_urban\GID15\Test
 checkpoint_directory: D:\weights\test\balanced
@@ -18,12 +19,12 @@ load_context: False
 
 #-------DATA LOADING----------
 epochs: 50
-chunk_size: 1680
+chunk_size: 2
 validation_chunk_size: 5
 patch_size: 224
 batch_size: 10
-augmentation: False
-#random_tps: [[512, 0.5],[1024, 0.5]]
+augmentation: True
+random_tps: [[510, 0.25],[350, 0.5]]
 
 # ------LOSS AND OPTIMIZATION----------
 loss: CEL

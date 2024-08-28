@@ -532,3 +532,16 @@ def debug_plot(config, e,c,i,image,index_mask, context):
 	if config['load_context']:
 		axarr[2].imshow(context.permute(1,2,0).cpu())
 	plt.savefig(os.path.join("output", f"epoch{e}_chunk{c}_index{i}.png"))
+
+
+def mask_reshape(mask: torch.tensor):
+	"""
+	Function needed to correct mask shape in case it gets loaded
+	with 3 channels instead of 1. In this case, the function
+	returns just the first of the 3 channels (as the values
+	are replicated along the channel dimension)
+	"""
+	if len(mask.shape) == 4:
+		return mask[:,0,:,:]
+	else:
+		return mask
