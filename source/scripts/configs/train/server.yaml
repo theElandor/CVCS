@@ -14,7 +14,7 @@ net: SegformerModB5
 epochs: 16
 chunk_size: 5
 patch_size: 224
-batch_size: 8
+batch_size: 16
 verbose: True
 
 loss: CEL
