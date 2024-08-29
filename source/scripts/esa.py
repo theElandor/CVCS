@@ -17,9 +17,9 @@ def plot(image):
 
 
 import matplotlib.pyplot as plt
-path = "D:\\Datasets\\ESA\\Image__8bit_NirRGB\\t2.png"
+path = "D:\\Datasets\\ESA\\Image__8bit_NirRGB\\modena3.png"
 image = tv_tensors.Image(Image.open(path))[:3,:,:]
-p = 256
+p = 512
 
 _, h, w = image.shape
 print(h,w)
@@ -29,7 +29,7 @@ c = GID15Converter()
 config = {"net":"Unetv2",
           "device":"gpu",
           "num_classes":15,
-          "load_checkpoint": "D:\\weights\\checkpoint15"
+          "load_checkpoint": "D:\\weights\\test\\balanced\\checkpoint50_augmented"
         }
 device = utils.load_device(config)
 net = utils.load_network(config, device)
@@ -64,14 +64,14 @@ files = os.listdir("output")
 sample = ToTensor()(Image.open(os.path.join("output", files[0])))
 p = sample.shape[1]
 
-# rows = []
-# for r in range(ht):
-#     prev = torch.zeros((3,p,p))
-#     for h in range(wt):
-#         tile = ToTensor()(Image.open(os.path.join("output", f"{(h+r*wt)}.png")))
-#         prev = torch.concat((prev, tile), dim=2)
-#     rows.append(prev[:,:,p:])
-# tot = rows[0]
-# for i in range(1, len(rows)):
-#     tot = torch.concat((tot, rows[i]), dim=1)    
-# save_image(tot, 'output_esa.png')
+rows = []
+for r in range(ht):
+    prev = torch.zeros((3,p,p))
+    for h in range(wt):
+        tile = ToTensor()(Image.open(os.path.join("output", f"{(h+r*wt)}.png")))
+        prev = torch.concat((prev, tile), dim=2)
+    rows.append(prev[:,:,p:])
+tot = rows[0]
+for i in range(1, len(rows)):
+    tot = torch.concat((tot, rows[i]), dim=1)    
+save_image(tot, 'output_esa.png')

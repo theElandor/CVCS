@@ -173,6 +173,8 @@ def load_network(config, device):
 		return nets.DeepLabv3Resnet101(classes).to(device)
 	elif netname == 'MobileNet':
 		return nets.DeepLabV3MobileNet(classes).to(device)
+	elif netname == 'DilatedUnet':
+		return nets.DilatedUrnetv2(classes).to(device)
 	elif netname == 'Ensemble':
 		try:
 			return Ensemble(classes, device, config.get('ensemble_config'))
