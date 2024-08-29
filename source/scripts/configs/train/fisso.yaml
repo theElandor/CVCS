@@ -1,8 +1,8 @@
 debug: True
 debug_plot: False
-#random_tps: [ [ 510, 0.25 ],[ 350, 0.25 ] ]
+random_tps: [ [ 511, 0.25 ] ]
 
-train: /home/nicola/CVCS/dataset/GID15/Train
+train: /home/nicola/CVCS/dataset/GID15/Train/Patches_512x512
 validation: /home/nicola/CVCS/dataset/GID15/Validation
 test: /home/nicola/CVCS/dataset/GID15/Test
 checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save checkpoints in
@@ -10,15 +10,15 @@ checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save check
 
 device: cpu
 augmentation: True
-net: SegformerModB5
+net: MobileNet
 epochs: 16
-chunk_size: 2
+chunk_size: 168
 patch_size: 224
 batch_size: 4
 verbose: True
 
 loss: CEL
-opt: ADAM3
+opt: ADAM2
 freq: 1
 precision_evaluation_freq: 4
 num_classes: 15

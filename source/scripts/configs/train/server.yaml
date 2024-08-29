@@ -2,23 +2,23 @@ debug: True
 debug_plot: False
 random_tps: [ [ 1024, 0.25 ] ]
 
-train: /work/cvcs2024/MSseg/Train
+train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
-checkpoint_directory: /homes/nmorelli/checkpoints/segformer/b5
+checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/mobile_net
 #load_checkpoint: /homes/nmorelli/checkpoints/segformer/checkpoint44
 
 device: gpu
 augmentation: True
-net: SegformerModB5
-epochs: 16
-chunk_size: 10
+net: MobileNet
+epochs: 64
+chunk_size: 168
 patch_size: 224
 batch_size: 16
 verbose: True
 
 loss: CEL
-opt: ADAM3
+opt: ADAM2
 freq: 1
 precision_evaluation_freq: 4
 num_classes: 15
