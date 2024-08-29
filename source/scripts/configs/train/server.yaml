@@ -1,6 +1,6 @@
 debug: True
 debug_plot: False
-random_tps: [ [ 510, 0.25 ],[ 350, 0.25 ] ]
+#random_tps: [ [ 510, 0.25 ],[ 350, 0.25 ] ]
 
 train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
