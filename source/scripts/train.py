@@ -10,7 +10,7 @@ import dataset
 from datetime import datetime
 from prettytable import PrettyTable
 import traceback
-
+from torchvision.transforms import v2
 inFile = sys.argv[1]
 
 with open(inFile, "r") as f:
@@ -59,7 +59,8 @@ except:
     exit(0)
 try:
     opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=4.0)
+    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=1.0)
+    # scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=opt, total_iters=config['epochs'])
 except:
     print("Error in loading optimizer")
     exit(0)
@@ -102,11 +103,14 @@ for epoch in range(last_epoch, config['epochs']):
     _epoch_t = PrettyTable(['Name', 'Value'])
     _epoch_t.add_row(['Time', str(datetime.now().time())[:8]])
     _epoch_t.add_row(['Epoch', str(epoch + 1)])
+    _image_resizer = v2.Resize(config['patch_size'], interpolation=v2.InterpolationMode.BILINEAR).to(device)
+    _mask_resizer = v2.Resize(config['patch_size'], interpolation=v2.InterpolationMode.NEAREST_EXACT).to(device)
 
     Loader_train.shuffle()  # shuffle full-sized images
-    patch_size = random.choice([112, 224, 448])
+    patch_size = random.choice([512])
     # patch_size = 224
-    _batch_size = (config['batch_size'] * ((448 // patch_size) ** 2))
+    # _batch_size = (config['batch_size'] * ((448 // patch_size) ** 2))
+    _batch_size = config['batch_size']
     _epoch_t.add_row(['Patch_size', patch_size])
     _epoch_t.add_row(['batch_size', _batch_size])
     _epoch_t.add_row(['lr', scheduler.get_last_lr()])
@@ -121,7 +125,7 @@ for epoch in range(last_epoch, config['epochs']):
                         desc=f'Epoch {epoch + 1}, Chunk {c + 1}')
         net.train()
         for batch_index, (image, index_mask, color_mask, _) in enumerate(dl):
-            image, mask = image.to(device), index_mask.to(device)
+            image, mask = _image_resizer(image).to(device), _image_resizer(index_mask).to(device)
             # avoid loading context to GPU if not needed
             # if net.requires_context:
             #     context = context.to(device)
