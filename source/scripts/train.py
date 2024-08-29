@@ -73,7 +73,7 @@ conf_normalized = []  # store normalized confusion matrix after each epoch
 
 if 'load_checkpoint' in config.keys():
     # Load model checkpoint (to resume training)    
-    checkpoint = torch.load(config['load_checkpoint'])
+    checkpoint = torch.load(config['load_checkpoint'], map_location=device)
     if net.wrapper:
         net.custom_load(checkpoint)
     else:
