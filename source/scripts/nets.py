@@ -624,3 +624,49 @@ class SegformerMod(nn.Module):
         for item in checkpoint_state_dict:
             checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
         self.load_state_dict(checkpoint_state_dict_mod)
+
+class SegformerModB5(nn.Module):
+    def __init__(self, num_classes, pretrained=True):
+        super(SegformerModB5, self).__init__()
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
+
+        self.num_classes = num_classes
+        # load pretrained
+        if pretrained:
+            self.segformer = SegformerForSemanticSegmentation.from_pretrained(
+                "nvidia/segformer-b5-finetuned-ade-640-640")
+        else:
+            self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
+
+        # change decoder head to output num_classes channels
+        mlp_in_channels = self.segformer.decode_head.classifier.in_channels
+        self.segformer.decode_head.classifier = nn.Conv2d(mlp_in_channels, num_classes, kernel_size=(1, 1),
+                                                          stride=(1, 1))
+
+        self.seq = torch.nn.Sequential(ConvTranspose2d(num_classes, num_classes, 8, stride=2, padding=3),
+                                       torch.nn.ReLU(),
+                                       ConvTranspose2d(num_classes, num_classes, 4, stride=2, padding=1),
+                                       torch.nn.ReLU(),
+                                       Conv2d(num_classes, num_classes, kernel_size=3, padding=1))
+
+        self.preprocessor = v2.Compose([
+            v2.ToDtype(torch.float32),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+        self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
+
+    def forward(self, x: torch.Tensor, context=None):
+        x = self.preprocessor(x)
+        out = self.segformer(x).logits
+        return self.seq(out)
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)
+

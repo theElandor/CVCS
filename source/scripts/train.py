@@ -104,9 +104,9 @@ for epoch in range(last_epoch, config['epochs']):
     _epoch_t.add_row(['Epoch', str(epoch + 1)])
 
     Loader_train.shuffle()  # shuffle full-sized images
-    # patch_size = random.choice([56, 112, 224])
-    patch_size = 224
-    _batch_size = (config['batch_size'] * ((224 // patch_size) ** 2))
+    patch_size = random.choice([112, 224, 448])
+    # patch_size = 224
+    _batch_size = (config['batch_size'] * ((448 // patch_size) ** 2))
     _epoch_t.add_row(['Patch_size', patch_size])
     _epoch_t.add_row(['batch_size', _batch_size])
     _epoch_t.add_row(['lr', scheduler.get_last_lr()])

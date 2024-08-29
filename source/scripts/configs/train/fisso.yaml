@@ -6,11 +6,11 @@ train: /home/nicola/CVCS/dataset/GID15/Train/Patches_512x512
 validation: /home/nicola/CVCS/dataset/GID15/Validation
 test: /home/nicola/CVCS/dataset/GID15/Test
 checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save checkpoints in
-load_checkpoint: /home/nicola/Desktop/checkpoints/segformer/checkpoint64
+#load_checkpoint: /home/nicola/Desktop/checkpoints/segformer/checkpoint64
 
 device: cpu
 augmentation: False
-net: SegformerMod
+net: SegformerModB5
 epochs: 128
 chunk_size: 168
 patch_size: 224

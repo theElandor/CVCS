@@ -195,6 +195,8 @@ def load_network(config, device):
             raise Exception
     elif netname == 'SegformerMod':
         return nets.SegformerMod(classes).to(device)
+    elif netname == 'SegformerModB5':
+        return nets.SegformerModB5(classes).to(device)
     else:
         print("Invalid network name.")
         raise Exception

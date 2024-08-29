@@ -1,20 +1,20 @@
 debug: True
 debug_plot: False
-#random_tps: [ [ 510, 0.25 ],[ 350, 0.25 ] ]
+random_tps: [ [ 510, 0.25 ],[ 350, 0.25 ] ]
 
 train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
-checkpoint_directory: /homes/nmorelli/checkpoints/segformer
-load_checkpoint: /homes/nmorelli/checkpoints/segformer/checkpoint44
+checkpoint_directory: /homes/nmorelli/checkpoints/segformer/b5
+#load_checkpoint: /homes/nmorelli/checkpoints/segformer/checkpoint44
 
 device: gpu
 augmentation: True
-net: SegformerMod
+net: SegformerModB5
 epochs: 128
 chunk_size: 168
 patch_size: 224
-batch_size: 16
+batch_size: 4
 verbose: True
 
 loss: CEL
