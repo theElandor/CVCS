@@ -10,7 +10,7 @@ checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/mobile_net
 
 device: gpu
 augmentation: True
-net: MobileNet
+net: Resnet50
 epochs: 64
 chunk_size: 168
 patch_size: 224
