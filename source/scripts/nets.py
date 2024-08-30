@@ -579,7 +579,6 @@ class SegformerMod(nn.Module):
 			v2.ToDtype(torch.float32),
 			v2.Normalize(mean=[94.68, 98.72, 91.60], std=[58.74, 56.45, 55.23])
 		])
-
 		self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
 
 	def forward(self, x: torch.Tensor, context=None):
@@ -587,7 +586,7 @@ class SegformerMod(nn.Module):
 		out = self.segformer(x)
 		res = self.upsampler(out.logits) 
 		return res
-
+	
 
 class DilatedUrnetv2(nn.Module):
       # classic Unet with some reshape and cropping to match our needs.
@@ -649,7 +648,6 @@ class DilatedUrnetv2(nn.Module):
 			# for each pixel (each pixel has a logit for each of the 6 classes.)
 		)
 	def forward(self, x: torch.Tensor, context=None):
-				
 		self.x1 = self.encode1(x)
 		self.x2 = self.encode2(self.x1)
 		self.x3 = self.encode3(self.x2)
@@ -672,3 +670,44 @@ class DilatedUrnetv2(nn.Module):
 		c4 = torch.concat((self.x1, y4), 1)
 		segmap = self.decode_forward4(c4)
 		return segmap
+	
+class Segformerino(nn.Module):
+	def __init__(self, num_classes, pretrain=False):
+		super(Segformerino, self).__init__()
+		self.requires_context = False
+		self.wrapper = False
+		self.returns_logits = True
+		self.pretrain = pretrain
+		
+		self.num_classes = num_classes
+		# load pretrained				
+		self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
+		
+		# change decoder head to output num_classes channels
+		
+		self.preprocessor = v2.Compose([
+			v2.ToDtype(torch.float32),
+			v2.Normalize(mean=[x/255 for x in [94.68, 98.72, 91.60]], std=[x/255 for x in [58.74, 56.45, 55.23]])
+		])
+
+		mlp_in_channels = self.segformer.decode_head.classifier.in_channels		
+		self.segformer.decode_head.classifier = nn.Conv2d(mlp_in_channels, num_classes, kernel_size=(1,1), stride=(1,1))
+		self.upsample1 = nn.ConvTranspose2d(num_classes, num_classes,kernel_size=2, stride=2)
+		self.upsample2 = nn.ConvTranspose2d(num_classes, num_classes,kernel_size=2, stride=2)
+		if pretrain:
+			self.freeze_head()
+		
+	def forward(self, x: torch.Tensor, context=None):
+		x = x/255
+		x = self.preprocessor(x)
+		out = self.segformer(x, output_hidden_states=True)
+		if self.pretrain:
+			embeddings = [torch.flatten(x) for x in out.hidden_states]
+			embeddings = torch.concat(embeddings, dim=0)
+			return embeddings
+		else:
+			out = self.upsample2(self.upsample1(out.logits))			
+			return out		
+
+	def freeze_head(self):
+		self.segformer.decode_head.requires_grad_(False)

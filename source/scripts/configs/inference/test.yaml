@@ -12,3 +12,11 @@ mask_only: True
 out_image: "map.png"
 ensemble_config: 'test.yaml'
 num_classes: 15
+
+
+
+# hidden = net(original)
+# hidden2 = net(modified)
+# loss = crit(hidden, hidden2)
+
+with torch.no_grad

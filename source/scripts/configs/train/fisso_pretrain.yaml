@@ -1,0 +1,35 @@
+#-------------DEBUGGING-----------
+debug: False
+debug_plot: False
+verbose: True
+
+#-------------DIRECTORIES------------
+train: D:\Datasets\GID15_urban\GID15\Train
+validation: D:\Datasets\GID15_urban\GID15\Validation
+test: D:\Datasets\GID15_urban\GID15\Test
+checkpoint_directory: D:\weights\test\test_dino
+#load_checkpoint: D:\weights\test\urban\checkpoint20
+#--------DEVICE--------------
+device: gpu
+
+#----NET AND CONTEXT----------
+net: Segformerino
+load_context: False
+#-------DATA LOADING----------
+epochs: 20
+chunk_size: 10
+validation_chunk_size: 1
+patch_size: 224
+batch_size: 16
+augmentation: False
+#random_tps: [[510, 0.25],[350, 0.5]]
+
+# ------LOSS AND OPTIMIZATION----------
+loss: MSE
+opt: SGD2
+
+#-------ALMOST NEVER TOUCH THESE--------
+freq: 1
+precision_evaluation_freq: 1
+num_classes: 15
+load_color_mask: False

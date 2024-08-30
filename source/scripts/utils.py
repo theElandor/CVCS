@@ -155,6 +155,7 @@ def inference(net,patch_size,dataset, indexes, device, converter, mask_only=Fals
 def load_network(config, device):
 	netname = config['net']
 	classes = config['num_classes']+1
+	pretrain = config.get('pretrain', False)
 	if netname == 'TSwin':
 		return nets.Swin(96,224,classes, device).to(device)
 	elif netname == 'BSwin':
@@ -175,6 +176,8 @@ def load_network(config, device):
 		return nets.DeepLabV3MobileNet(classes).to(device)
 	elif netname == 'DilatedUnet':
 		return nets.DilatedUrnetv2(classes).to(device)
+	elif netname == 'Segformerino':
+		return nets.Segformerino(classes, pretrain=pretrain).to(device)
 	elif netname == 'Ensemble':
 		try:
 			return Ensemble(classes, device, config.get('ensemble_config'))
@@ -220,7 +223,7 @@ def load_optimizer(config, net):
 def load_loss(config, device, dataset=None):
 	classes = config['num_classes']+1
 	name = config['loss']	
-	ignore_background = config['ignore_background']
+	ignore_background = config.get('ignore_background', False)	
 	
 	ignore_index = 0 if ignore_background else -100 # -100 is default
 	if name == "CEL":
@@ -233,6 +236,8 @@ def load_loss(config, device, dataset=None):
 			t.add_row([labels[i], score.item()])
 		print(t, flush=True)
 		return nn.CrossEntropyLoss(weight=weights, ignore_index=ignore_index)
+	elif name == 'MSE':
+		return nn.MSELoss()
 	else:
 		raise Exception
 
