@@ -5,7 +5,7 @@ random_tps: [ [ 511, 0.25 ] ]
 train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
-checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/mobile_net
+checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/resnet50
 #load_checkpoint: /homes/nmorelli/checkpoints/segformer/checkpoint44
 
 device: gpu
