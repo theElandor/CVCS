@@ -185,6 +185,8 @@ def load_network(config, device):
         return nets.FUnet(classes).to(device)
     elif netname == 'Resnet101':
         return nets.DeepLabv3Resnet101(classes).to(device)
+    elif netname == 'Resnet50':
+        return nets.DeepLabv3Resnet50(classes).to(device)
     elif netname == 'MobileNet':
         return nets.DeepLabV3MobileNet(classes).to(device)
     elif netname == 'Ensemble':

@@ -1,3 +1,5 @@
+from torch.nn.modules.module import T
+
 from blocks import UnetEncodeLayer, UnetUpscaleLayer, UnetForwardDecodeLayer, conv3x3
 import torch
 import torch.nn as nn
@@ -7,7 +9,7 @@ import torchvision.transforms.functional as functional
 import math
 from transformers import AutoModel, AutoImageProcessor, SegformerForSemanticSegmentation, SegformerConfig
 from blocks import UnetEncodeLayer, UnetUpscaleLayer, UnetForwardDecodeLayer, VisionTransformerEncoder
-from torchvision.models.segmentation import deeplabv3_resnet101, deeplabv3_mobilenet_v3_large
+from torchvision.models.segmentation import deeplabv3_resnet101, deeplabv3_mobilenet_v3_large, deeplabv3_resnet50
 from torch.nn import ConvTranspose2d, Conv2d
 
 """
@@ -156,7 +158,8 @@ class Swin(nn.Module):  # swinT + unet head
         inputs = self.image_processor(x, return_tensors="pt")
         self.r1, self.r2,
         self.r3, _, self.r4 = \
-        self.swin(inputs['pixel_values'].to(self.device), return_dict=True, output_hidden_states=True)['hidden_states']
+            self.swin(inputs['pixel_values'].to(self.device), return_dict=True, output_hidden_states=True)[
+                'hidden_states']
         s = int(math.sqrt(self.r4.shape[1]))
         self.r4 = self.r4.swapaxes(1, 2).reshape(-1, self.c * 8, s, s)
         self.r3 = self.r3.swapaxes(1, 2).reshape(-1, self.c * 4, s * 2, s * 2)
@@ -263,7 +266,8 @@ class Fusion(nn.Module):  # STILL TESTING
 
         inputs = self.image_processor(context, return_tensors="pt")
         r1, r2, r3, _, r4 = \
-        self.swin(inputs['pixel_values'].to(self.device), return_dict=True, output_hidden_states=True)['hidden_states']
+            self.swin(inputs['pixel_values'].to(self.device), return_dict=True, output_hidden_states=True)[
+                'hidden_states']
 
         _, c, h, w = self.spatial_features.shape
         r4 = r4.permute(0, 2, 1).reshape(-1, c, h, w)
@@ -552,6 +556,32 @@ class DeepLabv3Resnet101(nn.Module):
         self.load_state_dict(checkpoint_state_dict_mod)
 
 
+class DeepLabv3Resnet50(nn.Module):
+    def __init__(self, num_classes, pretrained=True):
+        super(DeepLabv3Resnet50, self).__init__()
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
+        self.num_classes = num_classes
+        if pretrained:
+            self.model = deeplabv3_resnet50(weights='COCO_WITH_VOC_LABELS_V1')
+            in_channels = self.model.classifier[4].in_channels
+            self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+        else:
+            self.model = deeplabv3_resnet101(num_classes=self.num_classes)
+
+    def forward(self, x: torch.Tensor, context=None):
+        d = self.model(x)
+        return d['out']
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)
+
+
 class DeepLabV3MobileNet(nn.Module):
     def __init__(self, num_classes, pretrained=True):
         super(DeepLabV3MobileNet, self).__init__()
@@ -569,6 +599,8 @@ class DeepLabV3MobileNet(nn.Module):
             self.model = deeplabv3_mobilenet_v3_large(self.num_classes)
 
     def forward(self, x: torch.Tensor, context=None):
+        if x.dtype is not torch.float:
+            x = x.to(torch.float)
         d = self.model(x)
         return d['out']
 
@@ -578,6 +610,9 @@ class DeepLabV3MobileNet(nn.Module):
         for item in checkpoint_state_dict:
             checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
         self.model.load_state_dict(checkpoint_state_dict_mod)
+
+    def eval(self):
+        self.model.eval()
 
 
 class SegformerMod(nn.Module):
@@ -592,6 +627,51 @@ class SegformerMod(nn.Module):
         if pretrained:
             self.segformer = SegformerForSemanticSegmentation.from_pretrained(
                 "nvidia/segformer-b3-finetuned-ade-512-512")
+        else:
+            self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
+
+        # change decoder head to output num_classes channels
+        mlp_in_channels = self.segformer.decode_head.classifier.in_channels
+        self.segformer.decode_head.classifier = nn.Conv2d(mlp_in_channels, num_classes, kernel_size=(1, 1),
+                                                          stride=(1, 1))
+
+        self.seq = torch.nn.Sequential(ConvTranspose2d(num_classes, num_classes, 8, stride=2, padding=3),
+                                       torch.nn.ReLU(),
+                                       ConvTranspose2d(num_classes, num_classes, 4, stride=2, padding=1),
+                                       torch.nn.ReLU(),
+                                       Conv2d(num_classes, num_classes, kernel_size=3, padding=1))
+
+        self.preprocessor = v2.Compose([
+            v2.ToDtype(torch.float32),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+        self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
+
+    def forward(self, x: torch.Tensor, context=None):
+        x = self.preprocessor(x)
+        out = self.segformer(x).logits
+        return self.seq(out)
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)
+
+class SegformerModB1(nn.Module):
+    def __init__(self, num_classes, pretrained=True):
+        super(SegformerModB5, self).__init__()
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
+
+        self.num_classes = num_classes
+        # load pretrained
+        if pretrained:
+            self.segformer = SegformerForSemanticSegmentation.from_pretrained(
+                "nvidia/segformer-b5-finetuned-ade-640-640")
         else:
             self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
 
@@ -669,4 +749,3 @@ class SegformerModB5(nn.Module):
         for item in checkpoint_state_dict:
             checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
         self.load_state_dict(checkpoint_state_dict_mod)
-
