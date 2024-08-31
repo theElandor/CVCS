@@ -5,12 +5,12 @@ random_tps: [ [ 511, 0.25 ] ]
 train: /work/cvcs2024/MSseg/Patches_512x512
 validation: /work/cvcs2024/MSseg/Validation
 test: /work/cvcs2024/MSseg/Test
-checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/resnet50
+checkpoint_directory: /homes/nmorelli/checkpoints/deeplabv3/mobile_net
 #load_checkpoint: /homes/nmorelli/checkpoints/segformer/checkpoint44
 
 device: gpu
 augmentation: True
-net: Resnet50
+net: MobileNet
 epochs: 64
 chunk_size: 168
 patch_size: 224
