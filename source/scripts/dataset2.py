@@ -38,8 +38,6 @@ class PatchIterator():
         return patch
 
 
-
-
 class GID15(torch.utils.data.IterableDataset):
     def __init__(self, parent_dir, patch_shape, chunk_size=1, dict_layout=False, image_transforms=None,
                  geometric_transforms=None, scale_down=False, scale_factor=2):

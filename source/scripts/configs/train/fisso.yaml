@@ -10,7 +10,7 @@ checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save check
 
 device: cpu
 augmentation: True
-net: Resnet50
+net: MobileNet
 epochs: 16
 chunk_size: 168
 patch_size: 224

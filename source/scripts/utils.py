@@ -18,6 +18,8 @@ from converters import GID15Converter
 import yaml
 import torchvision.transforms.v2 as transforms
 
+from source.scripts.nets import google_backbone
+
 labels = {
     0: "unlabeled",
     1: "industrial land",
@@ -188,7 +190,7 @@ def load_network(config, device):
     elif netname == 'Resnet50':
         return nets.DeepLabv3Resnet50(classes).to(device)
     elif netname == 'MobileNet':
-        return nets.DeepLabV3MobileNet(classes).to(device)
+        return nets.DeepLabV3MobileNet(classes, googlenet_backbone=True).to(device)
     elif netname == 'Ensemble':
         try:
             return Ensemble(classes, device, config.get('ensemble_config'))
@@ -293,7 +295,8 @@ def load_device(config):
 def load_checkpoint(config, net, load_confusion=False):
     if 'load_checkpoint' in config.keys():
         # Load model checkpoint (to resume training)
-        checkpoint = torch.load(config['load_checkpoint'])
+        device = load_device(config)
+        checkpoint = torch.load(config['load_checkpoint'], map_location=device)
         if net.wrapper:
             net.custom_load(checkpoint)
         else:

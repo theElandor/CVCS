@@ -36,6 +36,26 @@ and compatible with the codebase:
 """
 
 
+class google_backbone(torch.nn.Module):
+    def __init__(self):
+        super(google_backbone, self).__init__()
+        googleNet = torchvision.models.googlenet(weights='DEFAULT')
+        self.backbone = torch.nn.Sequential(*list(googleNet.children())[:-6])
+        self.out_layer = torch.nn.Conv2d(832, 960, kernel_size=(1, 1))
+        self.aux_layer = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(832, 832, kernel_size=2, stride=2),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(832, 40, kernel_size=(1, 1))
+        )
+
+    # self.out_conv = torch.nn.Conv2d()
+
+    def forward(self, x):
+        # out = self.google_backbone.incep
+        x = self.backbone(x)
+        return {'out': self.out_layer(x), 'aux': self.aux_layer(x)}
+
+
 class Urnet(nn.Module):
     # classic Unet with some reshape and cropping to match our needs.
     def __init__(self, num_classes):
@@ -583,8 +603,9 @@ class DeepLabv3Resnet50(nn.Module):
 
 
 class DeepLabV3MobileNet(nn.Module):
-    def __init__(self, num_classes, pretrained=True):
+    def __init__(self, num_classes, pretrained=True, googlenet_backbone=False):
         super(DeepLabV3MobileNet, self).__init__()
+        self.googlenet_backbone = googlenet_backbone
         self.requires_context = False
         self.wrapper = True
         self.returns_logits = True
@@ -598,6 +619,9 @@ class DeepLabV3MobileNet(nn.Module):
         else:
             self.model = deeplabv3_mobilenet_v3_large(self.num_classes)
 
+        if self.googlenet_backbone:
+            self.model.backbone = google_backbone()
+
     def forward(self, x: torch.Tensor, context=None):
         if x.dtype is not torch.float:
             x = x.to(torch.float)
@@ -608,11 +632,8 @@ class DeepLabV3MobileNet(nn.Module):
         checkpoint_state_dict_mod = {}
         checkpoint_state_dict = checkpoint['model_state_dict']
         for item in checkpoint_state_dict:
-            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+            checkpoint_state_dict_mod[str(item).replace('model.', '')] = checkpoint_state_dict[item]
         self.model.load_state_dict(checkpoint_state_dict_mod)
-
-    def eval(self):
-        self.model.eval()
 
 
 class SegformerMod(nn.Module):
@@ -660,6 +681,7 @@ class SegformerMod(nn.Module):
             checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
         self.load_state_dict(checkpoint_state_dict_mod)
 
+
 class SegformerModB1(nn.Module):
     def __init__(self, num_classes, pretrained=True):
         super(SegformerModB5, self).__init__()
@@ -704,6 +726,7 @@ class SegformerModB1(nn.Module):
         for item in checkpoint_state_dict:
             checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
         self.load_state_dict(checkpoint_state_dict_mod)
+
 
 class SegformerModB5(nn.Module):
     def __init__(self, num_classes, pretrained=True):
