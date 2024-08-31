@@ -18,7 +18,6 @@ from converters import GID15Converter
 import yaml
 import torchvision.transforms.v2 as transforms
 
-from source.scripts.nets import google_backbone
 
 labels = {
     0: "unlabeled",

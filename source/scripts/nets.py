@@ -48,8 +48,6 @@ class google_backbone(torch.nn.Module):
             torch.nn.Conv2d(832, 40, kernel_size=(1, 1))
         )
 
-    # self.out_conv = torch.nn.Conv2d()
-
     def forward(self, x):
         # out = self.google_backbone.incep
         x = self.backbone(x)
@@ -632,8 +630,8 @@ class DeepLabV3MobileNet(nn.Module):
         checkpoint_state_dict_mod = {}
         checkpoint_state_dict = checkpoint['model_state_dict']
         for item in checkpoint_state_dict:
-            checkpoint_state_dict_mod[str(item).replace('model.', '')] = checkpoint_state_dict[item]
-        self.model.load_state_dict(checkpoint_state_dict_mod)
+            checkpoint_state_dict_mod[str(item).replace('module', 'model')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)
 
 
 class SegformerMod(nn.Module):
