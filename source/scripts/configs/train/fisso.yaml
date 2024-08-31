@@ -1,6 +1,6 @@
 #-------------DEBUGGING-----------
 debug: False
-debug_plot: False
+debug_plot: True
 verbose: True
 
 #-------------DIRECTORIES------------
@@ -8,7 +8,7 @@ train: D:\Datasets\Patches_512x512
 validation: D:\Datasets\GID15_urban\GID15\Validation
 test: D:\Datasets\GID15_urban\GID15\Test
 checkpoint_directory: D:\weights\test\balanced
-#load_checkpoint: D:\weights\test\urban\checkpoint20
+load_checkpoint: D:\weights\test\test_dino\pretrain_checkpoint20
 #--------DEVICE--------------
 device: gpu
 
@@ -21,7 +21,7 @@ chunk_size: 1680
 validation_chunk_size: 5
 patch_size: 224
 batch_size: 10
-augmentation: False
+augmentation: True
 #random_tps: [[510, 0.25],[350, 0.5]]
 
 # ------LOSS AND OPTIMIZATION----------

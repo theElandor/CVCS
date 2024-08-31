@@ -177,6 +177,7 @@ def load_network(config, device):
 	elif netname == 'DilatedUnet':
 		return nets.DilatedUrnetv2(classes).to(device)
 	elif netname == 'Segformerino':
+		print(f"Warning: you loaded segformerino with pretrain={pretrain}, make sure it mirrors your willing.")
 		return nets.Segformerino(classes, pretrain=pretrain).to(device)
 	elif netname == 'Ensemble':
 		try:

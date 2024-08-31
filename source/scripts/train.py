@@ -17,7 +17,7 @@ utils.display_configs(config)
 image_transforms, mask_transforms = utils.load_basic_transforms(config)
 
 Loader_train = dataset.Loader(config['train'],
-                              config['chunk_size'],s
+                              config['chunk_size'],
                               random_shift=True, 
                               patch_size=config['patch_size'],
                               image_transforms=image_transforms,

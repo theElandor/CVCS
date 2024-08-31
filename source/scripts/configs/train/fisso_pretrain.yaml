@@ -1,3 +1,5 @@
+#------------PRETRAIN-----------
+pretrain: True
 #-------------DEBUGGING-----------
 debug: False
 debug_plot: False
@@ -8,7 +10,6 @@ train: D:\Datasets\GID15_urban\GID15\Train
 validation: D:\Datasets\GID15_urban\GID15\Validation
 test: D:\Datasets\GID15_urban\GID15\Test
 checkpoint_directory: D:\weights\test\test_dino
-#load_checkpoint: D:\weights\test\urban\checkpoint20
 #--------DEVICE--------------
 device: gpu
 
