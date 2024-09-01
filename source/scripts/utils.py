@@ -169,6 +169,7 @@ def inference(net, patch_size, dataset, indexes, device, converter, mask_only=Fa
 def load_network(config, device):
     netname = config['net']
     classes = config['num_classes'] + 1
+
     if netname == 'TSwin':
         return nets.Swin(96, 224, classes, device).to(device)
     elif netname == 'BSwin':
@@ -188,7 +189,14 @@ def load_network(config, device):
     elif netname == 'Resnet50':
         return nets.DeepLabv3Resnet50(classes).to(device)
     elif netname == 'MobileNet':
-        return nets.DeepLabV3MobileNet(classes, _googlenet_backbone=False, _resnet18_backbone=True).to(device)
+        if config['backbone'] == 'googlenet':
+            print("Using googlenet as backbone")
+            return nets.DeepLabV3MobileNet(classes, _googlenet_backbone=True).to(device)
+        elif config['backbone'] == 'resnet18':
+            print("Using resnet18 as backbone")
+            return nets.DeepLabV3MobileNet(classes, _resnet18_backbone=True).to(device)
+        else:
+            return nets.DeepLabV3MobileNet(classes, _googlenet_backbone=False, _resnet18_backbone=False).to(device)
     elif netname == 'Ensemble':
         try:
             return Ensemble(classes, device, config.get('ensemble_config'))

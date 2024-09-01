@@ -11,6 +11,7 @@ checkpoint_directory: /home/nicola/Desktop/checkpoints # directory to save check
 device: cpu
 augmentation: True
 net: MobileNet
+backbone: googlenet
 epochs: 16
 chunk_size: 168
 patch_size: 224

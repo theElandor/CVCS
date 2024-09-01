@@ -36,22 +36,22 @@ and compatible with the codebase:
 """
 
 
+def aux_hook(module, input, output):
+    module.aux_out = output
+
+
 class google_backbone(torch.nn.Module):
     def __init__(self):
         super(google_backbone, self).__init__()
         googleNet = torchvision.models.googlenet(weights='DEFAULT')
         self.backbone = torch.nn.Sequential(*list(googleNet.children())[:-6])
         self.out_layer = torch.nn.Conv2d(832, 960, kernel_size=(1, 1))
-        self.aux_layer = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(832, 832, kernel_size=2, stride=2),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(832, 40, kernel_size=(1, 1))
-        )
+        self.aux_layer = torch.nn.Conv2d(192, 40, kernel_size=(1, 1))
+        self.backbone[4].register_forward_hook(aux_hook)
 
     def forward(self, x):
-        # out = self.google_backbone.incep
         x = self.backbone(x)
-        return {'out': self.out_layer(x), 'aux': self.aux_layer(x)}
+        return {'out': self.out_layer(x), 'aux': self.aux_layer(self.backbone[4].aux_out)}
 
 
 class resnet18_backbone(torch.nn.Module):
@@ -64,17 +64,12 @@ class resnet18_backbone(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Conv2d(512, 960, kernel_size=(1, 1))
         )
-        self.aux_layer = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2),
-            torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(512, 40, kernel_size=(1, 1))
-        )
+        self.aux_layer = torch.nn.Conv2d(128, 40, kernel_size=(1, 1))
+
+        self.backbone[5].register_forward_hook(aux_hook)
 
     def forward(self, x):
-        x = self.backbone(x)
-        return {'out': self.out_layer(x), 'aux': self.aux_layer(x)}
+        return {'out': self.out_layer(self.backbone(x)), 'aux': self.aux_layer(self.backbone[5].aux_out)}
 
 
 class Urnet(nn.Module):
