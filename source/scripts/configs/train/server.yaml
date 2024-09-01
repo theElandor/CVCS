@@ -14,7 +14,7 @@ net: MobileNet
 epochs: 64
 chunk_size: 168
 patch_size: 224
-batch_size: 16
+batch_size: 32
 verbose: True
 
 loss: CEL

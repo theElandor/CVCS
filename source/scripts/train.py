@@ -60,7 +60,7 @@ except:
     exit(0)
 try:
     opt = utils.load_optimizer(config, net)
-    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=2.0)
+    scheduler = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=1.0)
     # scheduler = torch.optim.lr_scheduler.LinearLR(optimizer=opt, total_iters=config['epochs'])
 except:
     print("Error in loading optimizer")

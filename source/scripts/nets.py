@@ -54,6 +54,29 @@ class google_backbone(torch.nn.Module):
         return {'out': self.out_layer(x), 'aux': self.aux_layer(x)}
 
 
+class resnet18_backbone(torch.nn.Module):
+    def __init__(self):
+        super(resnet18_backbone, self).__init__()
+        self.backbone = torchvision.models.resnet18(weights='DEFAULT')
+        self.backbone = torch.nn.Sequential(*list(self.backbone.children())[:-2])
+        self.out_layer = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(512, 960, kernel_size=(1, 1))
+        )
+        self.aux_layer = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(512, 40, kernel_size=(1, 1))
+        )
+
+    def forward(self, x):
+        x = self.backbone(x)
+        return {'out': self.out_layer(x), 'aux': self.aux_layer(x)}
+
+
 class Urnet(nn.Module):
     # classic Unet with some reshape and cropping to match our needs.
     def __init__(self, num_classes):
@@ -601,9 +624,10 @@ class DeepLabv3Resnet50(nn.Module):
 
 
 class DeepLabV3MobileNet(nn.Module):
-    def __init__(self, num_classes, pretrained=True, googlenet_backbone=False):
+    def __init__(self, num_classes, pretrained=True, _googlenet_backbone=False, _resnet18_backbone=False):
         super(DeepLabV3MobileNet, self).__init__()
-        self.googlenet_backbone = googlenet_backbone
+        self.googlenet_backbone = _googlenet_backbone
+        self.resnet18_backbone = _resnet18_backbone
         self.requires_context = False
         self.wrapper = True
         self.returns_logits = True
@@ -619,6 +643,8 @@ class DeepLabV3MobileNet(nn.Module):
 
         if self.googlenet_backbone:
             self.model.backbone = google_backbone()
+        elif self.resnet18_backbone:
+            self.model.backbone = resnet18_backbone()
 
     def forward(self, x: torch.Tensor, context=None):
         if x.dtype is not torch.float:
