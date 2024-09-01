@@ -373,7 +373,7 @@ def accuracy(confusion):
 	all_predictions = torch.sum(confusion).item()
 	return correct_predictions/all_predictions
 
-def print_metrics(confusion):
+def print_metrics(confusion, silent=False):
 	t = PrettyTable(['Metric', 'Score'])
 	t.align = "r"
 	mIoU_score = IoU(confusion, mean=True)
@@ -386,14 +386,16 @@ def print_metrics(confusion):
 	t.add_row(['mRec', recall_score])
 	t.add_row(['Dice', dice_score])
 	t.add_row(['OA', oa_score])
-	print(t)
+	if not silent:
+		print(t)
 	iou = PrettyTable(['Class', 'IoU'])
 	iou.align = "r"
 	values, excluded = IoU(confusion, mean=False, return_excluded=True)
 	for i,score in enumerate(values.tolist()):
 		iou.add_row([labels[i], score])
-	print(f"Excluded classes (not in target): {[el for el in excluded]}")
-	print(iou, flush=True)
+	if not silent:
+		print(f"Excluded classes (not in target): {[el for el in excluded]}")
+		print(iou, flush=True)
 	return {'perclass_IoU':values.tolist(),
 		 	'mIoU': mIoU_score, 
 			'precision_score':precision_score,
