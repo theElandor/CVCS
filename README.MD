@@ -13,129 +13,27 @@ This virtual laboratory revolves around 4 main files:
 4) evaluation.py: script used to evaluate the performance of your model.
 # Quickstart
 In this tutorial we show how to setup the training of a simple network.
-You will also learn how to create a config file to customize hyperparameters and other settings. If you are just interested in launching a sample train jump [here](#3-write-the-training-config).
+You will also learn how to create a config file to customize hyperparameters and other settings.
 
-## 1. Write the model
-```python
-class Unet(nn.Module):
-      # classic Unet with some reshape and cropping to match our needs.
-	def __init__(self, num_classes):
-		super(Unet, self).__init__()		
-		self.requires_context = False
-		self.wrapper = False
-		self.returns_logits = True
-    	# encoding part of the Unet vanilla architecture
-		self.encode1 = nn.Sequential(
-			UnetEncodeLayer(3, 64, padding=1),
-			UnetEncodeLayer(64, 64, padding=1), ## keep dimensions unchanged
-		)
-		self.encode2 = nn.Sequential(
-			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(64, 128, padding=1),
-			UnetEncodeLayer(128, 128, padding=1),
-		)
-		self.encode3 = nn.Sequential(
-			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(128, 256, padding=1),
-			UnetEncodeLayer(256, 256, padding=1),
-		)
-		self.encode4 = nn.Sequential(
-			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(256, 512, padding=1),
-			UnetEncodeLayer(512, 512, padding=1),
-		)
-		self.encode5 = nn.Sequential(
-			nn.MaxPool2d(kernel_size=2, stride=2),
-			UnetEncodeLayer(512, 1024, padding=1),
-			UnetEncodeLayer(1024, 1024, padding=1),
-		)
-		self.upscale1 = nn.Sequential(
-			nn.ConvTranspose2d(1024, 512,kernel_size=2, stride=2)
-		)
-		self.decode_forward1 = nn.Sequential(
-			UnetForwardDecodeLayer(1024,512, padding=1)
-		)
-		self.upscale2 = nn.Sequential(
-			nn.ConvTranspose2d(512, 256,kernel_size=2, stride=2)
-		)
-		self.decode_forward2 = nn.Sequential(
-			UnetForwardDecodeLayer(512, 256, padding=1)
-		)
-		self.upscale3 = nn.Sequential(
-			nn.ConvTranspose2d(256, 128,kernel_size=2, stride=2)
-		)
-		self.decode_forward3 = nn.Sequential(
-			UnetForwardDecodeLayer(256,128,padding=1)
-		)
-		self.upscale4 = nn.Sequential(
-			nn.ConvTranspose2d(128, 64,kernel_size=2, stride=2)
-		)
-		self.decode_forward4 = nn.Sequential(
-			UnetForwardDecodeLayer(128,64, padding=1),
-			nn.Conv2d(64, num_classes, kernel_size=1)
-		)
-	def forward(self, x: torch.Tensor, context=None):
-				
-		self.x1 = self.encode1(x)
-		self.x2 = self.encode2(self.x1)
-		self.x3 = self.encode3(self.x2)
-		self.x4 = self.encode4(self.x3)
-		self.x5 = self.encode5(self.x4)
-
-		y1 = self.upscale1(self.x5)
-		c1 = torch.concat((self.x4, y1), 1)
-		y2 = self.decode_forward1(c1)
-		
-		y2 = self.upscale2(y2)
-		c2 = torch.concat((self.x3, y2), 1)
-		y3 = self.decode_forward2(c2)
-
-		y3 = self.upscale3(y3)
-		c3 = torch.concat((functional.center_crop(y3, self.x2.shape[2]), self.x2), 1)
-		y4 = self.decode_forward3(c3)
-
-		y4 = self.upscale4(y4)
-		c4 = torch.concat((self.x1, y4), 1)
-		segmap = self.decode_forward4(c4)
-		return segmap
-```
-As you can see this is a standard Pytorch module. It is contained in nets.py
-and it uses modules like ```UnetEncodeLayer``` or ```UnetForwardDecodeLayer```
-that can be found in blocks.py.
-If you want to write your own model, just remember to define the following class attributes:
-+ ```self.output_logits=True```
-+ ```self.requires_context=False```
-+ ```self.wrapper=False```
-if you need more details please refer to the full documentation.
-## 2. Register the model
-We alredy provide 4 pre-registered models that you can directly initialize from
-the configuration file. If you want to register your own model (for example the one that you just wrote) you can do it by modifying the ```load_model``` function contained in utils.py.
-Just add at the end of the function
-```
-elif netname == 'Unet':
-	return nets.Unet(classes).to(device)
-```
-and you are done.
-## 3. Write the training config
+## 1. Write the training config
 We implemented several functions to cover most of the needs related to remote sensing image segmentation. The following is just an example, but you can find more information in the full documentation.
 ```yaml
 #-------------DEBUGGING-----------
 debug: False
-debug_plot: True
+debug_plot: False
 verbose: True
 #-------------DIRECTORIES------------
-train: D:\Datasets\Patches_512x512
-validation: D:\Datasets\GID15_urban\GID15\Validation
-test: D:\Datasets\GID15_urban\GID15\Test
+train: D:\Datasets\GID15\GID15\Train
+validation: D:\Datasets\GID15\GID15\Validation
+test: D:\Datasets\GID15\GID15\Test
 checkpoint_directory: D:\weights\test\balanced
-load_checkpoint: D:\weights\test\test_dino\pretrain_checkpoint20
 #--------DEVICE--------------
 device: gpu
 #----------NET---------------
 net: Unetv2
 #-------DATA LOADING----------
 epochs: 50
-chunk_size: 1680
+chunk_size: 10
 validation_chunk_size: 5
 patch_size: 224
 batch_size: 10
@@ -151,3 +49,38 @@ num_classes: 15
 load_color_mask: False
 load_context: False
 ```
+Most of the parameters are self-explanatory, here are some more information on the most specific ones:
++ *checkpoint directory*: directory where the script will save a checkpoint of the model after each epoch.
++ *chunk size*: the default dataloader used for training does not require images to be divided in patches, as it will take care of cropping the original sized images at runtime. With this setting you can specify how many original sized images are loaded in memory, shuffled and cropped to obtain the training patches. Ideally you should set *chunk_size* as the number of full size images that you train on to maximize variability between patches.During training the dataloader will take care to iterate on the full dataset by creating *chunks* of the specified size.
+
++ *validation_chunk_size*: same concept as *chunk_size* but for the validation dataset.
++ *augmentation*: if set to True, it will apply some basic data augmentation tecniques to
+the training patches, like random gaussian blur, random rotation and color jitter.
+For more information on training parameters, refer to the full documentation.
+
+## 2. Launch the training
+To launch the training, use the following command
+```bash
+python3 train.py <config file>
+```
+## 3. Inference
+Once your model finished the training procedure, you will immediately get a grasp on how it performed on the training dataset by looking at the standard output.
+To perform inference and segment actual images, you can use the inference.py script paired with a configuration file. Here's an example:
+```yaml
+dataset: D:\Datasets\GID15\gid-15\GID\Validation
+device: gpu
+net: Unetv2
+load_checkpoint: D:\weights\test\balanced\checkpoint50
+patch_size: 224
+border_correction: 256
+range: [0,960]
+mask_only: True
+out_image: "map.png"
+num_classes: 15
+```
++ *load_checkpoint*: used to specify the checkpoint to load for your network. Make sure that *net* and the desired checkpoints are compatible, otherwise the script will throw an error.
++ *border_correction*: used to specify the actual size of patches that are going to be segmented. This tecnique is used to prevent 'tiling', a common problem in remote sensing image segmentation that we further explain in our paper. 
+In practice, the dataloader will divide the image into non overlapping patches of size *patch_size*, but will perform inference on a 'augmented patch' of size *border_correction* then crop the central part to only keep *patch_size* x *patch_size* pixels.
++ *range*: with this list you can select the patches that you want to segment. In this example we selected the first 960 patches that corespond to the first full-sized image of the validation set. Every segmented patch will be saved in the ```output``` directory.
++ *mask_only*: if set to True, the output will be saved as just the segmentation mask in a .png file. If set to False, the output will be a plot that will show both the original image and coresponding mask.
++ *out_image*: if specified, the script will create a full-sized image with the generated masks.
