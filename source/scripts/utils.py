@@ -399,7 +399,7 @@ def print_metrics(confusion, silent=False):
 	return {'perclass_IoU':values.tolist(),
 		 	'mIoU': mIoU_score, 
 			'precision_score':precision_score,
-			'recall_score:': recall_score,
+			'recall_score': recall_score,
 			'dice_score': dice_score,
 			'oa_score': oa_score}
 
