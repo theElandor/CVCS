@@ -84,3 +84,21 @@ In practice, the dataloader will divide the image into non overlapping patches o
 + *range*: with this list you can select the patches that you want to segment. In this example we selected the first 960 patches that corespond to the first full-sized image of the validation set. Every segmented patch will be saved in the ```output``` directory.
 + *mask_only*: if set to True, the output will be saved as just the segmentation mask in a .png file. If set to False, the output will be a plot that will show both the original image and coresponding mask.
 + *out_image*: if specified, the script will create a full-sized image with the generated masks.
+## 4. (extra): Evaluation
+You can specify to run a evaluation loop (on the validation set) after each training epoch with the *eval* option in the training configuration file. Moreover, you can also run customized evaluation loops.
+To do this,you will need a evaluation config file. Here's an example:
+```yaml
+net: Unetv2
+load_checkpoint: D:\weights\test\balanced\UnetNoBackWeighted\checkpoint50
+dataset: D:\Datasets\GID15\gid-15\GID\Validation
+num_classes: 15
+patch_size: 224
+device: gpu
+verbose: True
+confusion_matrix: 'confusion.png'
+priors: 'priors.png'
+ignore_background: True
+load_context: False
+load_color_mask: False
+``` 
+with *confusion_matrix* and *priors* you can specify the path where the confusion matrix and the histogram of class priors of the specified dataset will be saved.

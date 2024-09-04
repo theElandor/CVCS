@@ -309,7 +309,6 @@ class DeepLabV3MobileNet(nn.Module):
         for item in checkpoint_state_dict:
             checkpoint_state_dict_mod[str(item).replace('module', 'model')] = checkpoint_state_dict[item]
         self.load_state_dict(checkpoint_state_dict_mod)
-        
 
 class SegformerMod(nn.Module):
     def __init__(self, num_classes, pretrained=True):
