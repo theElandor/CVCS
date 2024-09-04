@@ -2,11 +2,11 @@ dataset: D:\Datasets\GID15\gid-15\GID\Validation
 device: gpu
 
 net: Unetv2
-load_checkpoint: D:\weights\test\balanced\UnetNoBack\checkpoint50
+load_checkpoint: D:\weights\experiments\checkpoints\checkpoint50_Unet
 patch_size: 224
 border_correction: 256
 
-range: [0,960]
+range: [6720,7680]
 
 mask_only: True
 out_image: "map.png"

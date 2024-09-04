@@ -120,7 +120,6 @@ for epoch in range(last_epoch, config['epochs']):
                 utils.debug_plot(config, epoch, c, batch_index, image, index_mask, context)
             mask_pred = net(image.type(torch.float32), context.type(torch.float32)).to(device)
             loss = crit(mask_pred, mask.type(torch.long))
-
             training_loss_values.append(loss.item())
             opt.zero_grad()
             loss.backward()

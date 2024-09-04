@@ -17,26 +17,46 @@ from prettytable import PrettyTable
 from converters import GID15Converter
 import yaml
 import torchvision.transforms.v2 as transforms
+import seaborn as sn
+import pandas as pd
+import matplotlib.pyplot as plt
 
 labels = {
-	0:"unlabeled",
-	1:"industrial land",
-	2:"urban residential",
-	3:"rural residential",
-	4:"traffic land",
-	5:"paddy field",
-	6:"irrigated cropland",
-	7:"dry cropland",
-	8:"garden plot",
-	9:"arbor forest",
-	10:"shrub land",
-	11:"natural grassland",
-	12:"artificial grassland",
-	13:"river",
-	14:"lake",
-	15:"pond",
+	0:	"unlabeled",
+	1:	"industrial land",
+	2:	"urban residential",
+	3:	"rural residential",
+	4:	"traffic land",
+	5:	"paddy field",
+	6:	"irrigated cropland",
+	7:	"dry cropland",
+	8:	"garden plot",
+	9:	"arbor forest",
+	10:	"shrub land",
+	11:	"natural grassland",
+	12:	"artificial grassland",
+	13:	"river",
+	14:	"lake",
+	15:	"pond",
 }
-
+short_labels = [
+	"B",
+	"IL",
+	"UL",
+	"RL",
+	"TL",
+	"PF",
+	"IC",
+	"DC",
+	"GP",
+	"AF",
+	"SL",
+	"NG",
+	"AG",
+	"R",
+	"L",
+	"P",
+]
 def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False, ignore_background=False):
 	"""
 	Function that evaluates model precision.
@@ -155,6 +175,7 @@ def inference(net,patch_size,dataset, indexes, device, converter, mask_only=Fals
 def load_network(config, device):
 	netname = config['net']
 	classes = config['num_classes']+1
+	pretrain = config.get('pretrain', False)
 	if netname == 'TSwin':
 		return nets.Swin(96,224,classes, device).to(device)
 	elif netname == 'BSwin':
@@ -173,6 +194,11 @@ def load_network(config, device):
 		return nets.DeepLabv3Resnet101(classes).to(device)
 	elif netname == 'MobileNet':
 		return nets.DeepLabV3MobileNet(classes).to(device)
+	elif netname == 'DilatedUnet':
+		return nets.DilatedUrnetv2(classes).to(device)
+	elif netname == 'Segformerino':
+		print(f"Warning: you loaded segformerino with pretrain={pretrain}, make sure it mirrors your willing.")
+		return nets.Segformerino(classes, pretrain=pretrain).to(device)
 	elif netname == 'Ensemble':
 		try:
 			return Ensemble(classes, device, config.get('ensemble_config'))
@@ -218,7 +244,7 @@ def load_optimizer(config, net):
 def load_loss(config, device, dataset=None):
 	classes = config['num_classes']+1
 	name = config['loss']	
-	ignore_background = config['ignore_background']
+	ignore_background = config.get('ignore_background', False)	
 	
 	ignore_index = 0 if ignore_background else -100 # -100 is default
 	if name == "CEL":
@@ -231,6 +257,8 @@ def load_loss(config, device, dataset=None):
 			t.add_row([labels[i], score.item()])
 		print(t, flush=True)
 		return nn.CrossEntropyLoss(weight=weights, ignore_index=ignore_index)
+	elif name == 'MSE':
+		return nn.MSELoss()
 	else:
 		raise Exception
 
@@ -365,7 +393,7 @@ def accuracy(confusion):
 	all_predictions = torch.sum(confusion).item()
 	return correct_predictions/all_predictions
 
-def print_metrics(confusion):
+def print_metrics(confusion, silent=False):
 	t = PrettyTable(['Metric', 'Score'])
 	t.align = "r"
 	mIoU_score = IoU(confusion, mean=True)
@@ -378,18 +406,20 @@ def print_metrics(confusion):
 	t.add_row(['mRec', recall_score])
 	t.add_row(['Dice', dice_score])
 	t.add_row(['OA', oa_score])
-	print(t)
+	if not silent:
+		print(t)
 	iou = PrettyTable(['Class', 'IoU'])
 	iou.align = "r"
 	values, excluded = IoU(confusion, mean=False, return_excluded=True)
 	for i,score in enumerate(values.tolist()):
 		iou.add_row([labels[i], score])
-	print(f"Excluded classes (not in target): {[el for el in excluded]}")
-	print(iou, flush=True)
+	if not silent:
+		print(f"Excluded classes (not in target): {[el for el in excluded]}")
+		print(iou, flush=True)
 	return {'perclass_IoU':values.tolist(),
 		 	'mIoU': mIoU_score, 
 			'precision_score':precision_score,
-			'recall_score:': recall_score,
+			'recall_score': recall_score,
 			'dice_score': dice_score,
 			'oa_score': oa_score}
 
@@ -401,13 +431,24 @@ def display_configs(configs):
 	print(t, flush=True)
 
 
+# def plot_confusion(normalized, path=None):
+# 	fig_, ax_ = normalized.plot(labels = short_labels)	
+# 	fig_.set_size_inches(18.5, 10.5)
+# 	if path == None:
+# 		plt.show()
+# 	else:
+# 		plt.savefig(path)
+
 def plot_confusion(normalized, path=None):
-	fig_, ax_ = normalized.plot(labels = labels.values())
-	fig_.set_size_inches(18.5, 10.5)
-	if path == None:
-		plt.show()
-	else:
-		plt.savefig(path)
+	df_cm = pd.DataFrame(normalized, short_labels, short_labels)
+	plt.figure(figsize=(10,8))	
+	sn.set(font_scale=2.3) # for label size
+	hm = sn.heatmap(df_cm, annot_kws={"size": 20}, cmap=sn.color_palette("ch:s=.25,rot=-.25", as_cmap=True), fmt=".1f")
+	hm_ax = hm.figure.axes[-1]
+	hm.set_yticklabels(hm.get_yticklabels(), rotation=0)
+	hm_ax.tick_params(labelsize=20, labelrotation=0)	
+	plt.show()
+
 
 def plot_priors(confusion, sorted=True, path=None):
 	c = GID15Converter()	

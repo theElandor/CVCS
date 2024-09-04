@@ -1,0 +1,14 @@
+dataset: D:\Datasets\GID15\gid-15\GID\Validation
+device: gpu
+
+net: SegformerMod
+load_checkpoint: D:\weights\experiments\checkpoints\checkpoint64_Segformer
+patch_size: 224
+#border_correction: 256
+
+range: [5760,6720]
+
+mask_only: True
+out_image: "map.png"
+ensemble_config: 'test.yaml'
+num_classes: 15

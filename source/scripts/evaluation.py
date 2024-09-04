@@ -29,5 +29,5 @@ flat, normalized = utils.eval_model(net,
 confusion = flat.compute()
 utils.print_metrics(confusion)
 # plot normalized confusion matrix
-utils.plot_confusion(normalized, path=config.get('confusion_matrix'))
+utils.plot_confusion(normalized.compute().cpu().numpy(), path=config.get('confusion_matrix'))
 utils.plot_priors(confusion, path=config.get('priors'))
