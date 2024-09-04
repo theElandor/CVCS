@@ -6,3 +6,5 @@ source/old_files/output
 source/scripts/lab_evaluation.ipynb
 source/scripts/lab_nets.ipynb
 source/scripts/lab_plotting.ipynb
+.vscode/
+__pycache__/
