@@ -17,26 +17,46 @@ from prettytable import PrettyTable
 from converters import GID15Converter
 import yaml
 import torchvision.transforms.v2 as transforms
+import seaborn as sn
+import pandas as pd
+import matplotlib.pyplot as plt
 
 labels = {
-	0:"unlabeled",
-	1:"industrial land",
-	2:"urban residential",
-	3:"rural residential",
-	4:"traffic land",
-	5:"paddy field",
-	6:"irrigated cropland",
-	7:"dry cropland",
-	8:"garden plot",
-	9:"arbor forest",
-	10:"shrub land",
-	11:"natural grassland",
-	12:"artificial grassland",
-	13:"river",
-	14:"lake",
-	15:"pond",
+	0:	"unlabeled",
+	1:	"industrial land",
+	2:	"urban residential",
+	3:	"rural residential",
+	4:	"traffic land",
+	5:	"paddy field",
+	6:	"irrigated cropland",
+	7:	"dry cropland",
+	8:	"garden plot",
+	9:	"arbor forest",
+	10:	"shrub land",
+	11:	"natural grassland",
+	12:	"artificial grassland",
+	13:	"river",
+	14:	"lake",
+	15:	"pond",
 }
-
+short_labels = [
+	"B",
+	"IL",
+	"UL",
+	"RL",
+	"TL",
+	"PF",
+	"IC",
+	"DC",
+	"GP",
+	"AF",
+	"SL",
+	"NG",
+	"AG",
+	"R",
+	"L",
+	"P",
+]
 def eval_model(net, Loader_validation, device, batch_size=1, show_progress=False, ignore_background=False):
 	"""
 	Function that evaluates model precision.
@@ -411,13 +431,24 @@ def display_configs(configs):
 	print(t, flush=True)
 
 
+# def plot_confusion(normalized, path=None):
+# 	fig_, ax_ = normalized.plot(labels = short_labels)	
+# 	fig_.set_size_inches(18.5, 10.5)
+# 	if path == None:
+# 		plt.show()
+# 	else:
+# 		plt.savefig(path)
+
 def plot_confusion(normalized, path=None):
-	fig_, ax_ = normalized.plot(labels = labels.values())
-	fig_.set_size_inches(18.5, 10.5)
-	if path == None:
-		plt.show()
-	else:
-		plt.savefig(path)
+	df_cm = pd.DataFrame(normalized, short_labels, short_labels)
+	plt.figure(figsize=(10,8))	
+	sn.set(font_scale=2.3) # for label size
+	hm = sn.heatmap(df_cm, annot_kws={"size": 20}, cmap=sn.color_palette("ch:s=.25,rot=-.25", as_cmap=True), fmt=".1f")
+	hm_ax = hm.figure.axes[-1]
+	hm.set_yticklabels(hm.get_yticklabels(), rotation=0)
+	hm_ax.tick_params(labelsize=20, labelrotation=0)	
+	plt.show()
+
 
 def plot_priors(confusion, sorted=True, path=None):
 	c = GID15Converter()	

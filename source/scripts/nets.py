@@ -6,7 +6,8 @@ import torchvision.transforms.v2 as v2
 import torchvision.transforms.functional as functional
 from transformers import SegformerForSemanticSegmentation, SegformerConfig
 from blocks import UnetEncodeLayer,UnetUpscaleLayer,UnetForwardDecodeLayer
-from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large
+from torchvision.models.segmentation import deeplabv3_resnet101,deeplabv3_mobilenet_v3_large,deeplabv3_resnet50
+from torch.nn import ConvTranspose2d, Conv2d
 
 """
 To write a new network make sure that your class is initialized
@@ -197,80 +198,160 @@ class Urnetv2(nn.Module):
 		segmap = self.decode_forward4(c4)
 		return segmap
 
+def aux_hook(module, input, output):
+    module.aux_out = output
+
+class google_backbone(torch.nn.Module):
+    def __init__(self):
+        super(google_backbone, self).__init__()
+        googleNet = torchvision.models.googlenet(weights='DEFAULT')
+        self.backbone = torch.nn.Sequential(*list(googleNet.children())[:-6])
+        self.out_layer = torch.nn.Conv2d(832, 960, kernel_size=(1, 1))
+        self.aux_layer = torch.nn.Conv2d(192, 40, kernel_size=(1, 1))
+        self.backbone[4].register_forward_hook(aux_hook)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        return {'out': self.out_layer(x), 'aux': self.aux_layer(self.backbone[4].aux_out)}
+
+class resnet18_backbone(torch.nn.Module):
+    def __init__(self):
+        super(resnet18_backbone, self).__init__()
+        self.backbone = torchvision.models.resnet18(weights='DEFAULT')
+        self.backbone = torch.nn.Sequential(*list(self.backbone.children())[:-2])
+        self.out_layer = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(512, 512, kernel_size=2, stride=2),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(512, 960, kernel_size=(1, 1))
+        )
+        self.aux_layer = torch.nn.Conv2d(128, 40, kernel_size=(1, 1))
+
+        self.backbone[5].register_forward_hook(aux_hook)
+
+    def forward(self, x):
+        return {'out': self.out_layer(self.backbone(x)), 'aux': self.aux_layer(self.backbone[5].aux_out)}
+    
 class DeepLabv3Resnet101(nn.Module):
-	def __init__(self, num_classes, pretrained=True):
-		super(DeepLabv3Resnet101, self).__init__()		
-		self.requires_context = False
-		self.wrapper = True
-		self.returns_logits = True
-		self.num_classes = num_classes
-		
-		if pretrained:
-			self.model = deeplabv3_resnet101(weights='COCO_WITH_VOC_LABELS_V1')
-			in_channels = self.model.classifier[4].in_channels
-			self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
-		else:
-			self.model = deeplabv3_resnet101(num_classes=self.num_classes)
-	def forward(self, x: torch.Tensor, context=None):
-		d = self.model(x)
-		return d['out']
-	def custom_load(self, checkpoint):
-		checkpoint_state_dict_mod = {}
-		checkpoint_state_dict = checkpoint['model_state_dict']
-		for item in checkpoint_state_dict:
-			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
-		self.model.load_state_dict(checkpoint_state_dict_mod)
+    def __init__(self, num_classes, pretrained=True):
+        super(DeepLabv3Resnet101, self).__init__()
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
+        self.num_classes = num_classes
+        if pretrained:
+            self.model = deeplabv3_resnet101(weights='COCO_WITH_VOC_LABELS_V1')
+            in_channels = self.model.classifier[4].in_channels
+            self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+        else:
+            self.model = deeplabv3_resnet101(num_classes=self.num_classes)
 
+    def forward(self, x: torch.Tensor, context=None):
+        d = self.model(x)
+        return d['out']
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)
+
+class DeepLabv3Resnet50(nn.Module):
+    def __init__(self, num_classes, pretrained=True):
+        super(DeepLabv3Resnet50, self).__init__()
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
+        self.num_classes = num_classes
+        if pretrained:
+            self.model = deeplabv3_resnet50(weights='COCO_WITH_VOC_LABELS_V1')
+            in_channels = self.model.classifier[4].in_channels
+            self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+        else:
+            self.model = deeplabv3_resnet101(num_classes=self.num_classes)
+
+    def forward(self, x: torch.Tensor, context=None):
+        d = self.model(x)
+        return d['out']
+    
 class DeepLabV3MobileNet(nn.Module):
-	def __init__(self, num_classes, pretrained=True):
-		super(DeepLabV3MobileNet, self).__init__()		
-		self.requires_context = False
-		self.wrapper = True
-		self.returns_logits = True		
-		self.num_classes = num_classes
+    def __init__(self, num_classes, pretrained=True, _googlenet_backbone=False, _resnet18_backbone=False):
+        super(DeepLabV3MobileNet, self).__init__()
+        self.googlenet_backbone = _googlenet_backbone
+        self.resnet18_backbone = _resnet18_backbone
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
 
-		if pretrained:
-			self.model = deeplabv3_mobilenet_v3_large( weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)
-			in_channels = self.model.classifier[4].in_channels
-			self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
-		else:
-			self.model = deeplabv3_mobilenet_v3_large(self.num_classes)
-	def forward(self, x: torch.Tensor, context=None):
-		d = self.model(x)
-		return d['out']
-	def custom_load(self, checkpoint):
-		checkpoint_state_dict_mod = {}
-		checkpoint_state_dict = checkpoint['model_state_dict']
-		for item in checkpoint_state_dict:
-			checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
-		self.model.load_state_dict(checkpoint_state_dict_mod)		
+        self.num_classes = num_classes
+        if pretrained:
+            self.model = deeplabv3_mobilenet_v3_large(
+                weights=torchvision.models.segmentation.DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT)
+            in_channels = self.model.classifier[4].in_channels
+            self.model.classifier[4] = torch.nn.Conv2d(in_channels, self.num_classes, kernel_size=1)
+        else:
+            self.model = deeplabv3_mobilenet_v3_large(self.num_classes)
+
+        if self.googlenet_backbone:
+            self.model.backbone = google_backbone()
+        elif self.resnet18_backbone:
+            self.model.backbone = resnet18_backbone()
+
+    def forward(self, x: torch.Tensor, context=None):
+        if x.dtype is not torch.float:
+            x = x.to(torch.float)
+        d = self.model(x)
+        return d['out']
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module', 'model')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)
+        
 
 class SegformerMod(nn.Module):
-	def __init__(self, num_classes, pretrained=True):
-		super(SegformerMod, self).__init__()
-		self.requires_context = False
-		self.wrapper = False
-		self.returns_logits = True
+    def __init__(self, num_classes, pretrained=True):
+        super(SegformerMod, self).__init__()
+        self.requires_context = False
+        self.wrapper = True
+        self.returns_logits = True
 
-		self.num_classes = num_classes
-		# load pretrained
-		if pretrained:
-			self.segformer = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
-		else:
-			self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
-		
-		# change decoder head to output num_classes channels
-		mlp_in_channels = self.segformer.decode_head.classifier.in_channels
-		self.segformer.decode_head.classifier = nn.Conv2d(mlp_in_channels, num_classes, kernel_size=(1,1), stride=(1,1))
+        self.num_classes = num_classes
+        # load pretrained
+        if pretrained:
+            self.segformer = SegformerForSemanticSegmentation.from_pretrained(
+                "nvidia/segformer-b3-finetuned-ade-512-512")
+        else:
+            self.segformer = SegformerForSemanticSegmentation(SegformerConfig())
 
-		self.preprocessor = v2.Compose([
-			v2.ToDtype(torch.float32),
-			v2.Normalize(mean=[94.68, 98.72, 91.60], std=[58.74, 56.45, 55.23])
-		])
-		self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
+        # change decoder head to output num_classes channels
+        mlp_in_channels = self.segformer.decode_head.classifier.in_channels
+        self.segformer.decode_head.classifier = nn.Conv2d(mlp_in_channels, num_classes, kernel_size=(1, 1),
+                                                          stride=(1, 1))
 
-	def forward(self, x: torch.Tensor, context=None):
-		x = self.preprocessor(x)
-		out = self.segformer(x)
-		res = self.upsampler(out.logits) 
-		return res
+        self.seq = torch.nn.Sequential(ConvTranspose2d(num_classes, num_classes, 8, stride=2, padding=3),
+                                       torch.nn.ReLU(),
+                                       ConvTranspose2d(num_classes, num_classes, 4, stride=2, padding=1),
+                                       torch.nn.ReLU(),
+                                       Conv2d(num_classes, num_classes, kernel_size=3, padding=1))
+
+        self.preprocessor = v2.Compose([
+            v2.ToDtype(torch.float32),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+        self.upsampler = nn.Upsample(scale_factor=4, mode='bilinear')
+
+    def forward(self, x: torch.Tensor, context=None):
+        x = self.preprocessor(x)
+        out = self.segformer(x).logits
+        return self.seq(out)
+
+    def custom_load(self, checkpoint):
+        checkpoint_state_dict_mod = {}
+        checkpoint_state_dict = checkpoint['model_state_dict']
+        for item in checkpoint_state_dict:
+            checkpoint_state_dict_mod[str(item).replace('module.', '')] = checkpoint_state_dict[item]
+        self.load_state_dict(checkpoint_state_dict_mod)

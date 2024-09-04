@@ -1,0 +1,14 @@
+dataset: D:\Datasets\GID15\gid-15\GID\Validation
+device: gpu
+
+net: Unetv2
+load_checkpoint: D:\weights\experiments\checkpoints\checkpoint50_Unet
+patch_size: 224
+border_correction: 256
+
+range: [6720,7680]
+
+mask_only: True
+out_image: "map.png"
+ensemble_config: 'test.yaml'
+num_classes: 15
