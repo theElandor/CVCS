@@ -9,7 +9,6 @@ import nets
 from dataset import GID15
 import numpy as np
 import torch.nn as nn
-import loss
 from PIL import Image
 from torchmetrics.classification import MulticlassConfusionMatrix
 from torchmetrics.segmentation import MeanIoU
