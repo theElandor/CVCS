@@ -1,8 +1,7 @@
 #-------------DEBUGGING-----------
 debug: False
-debug_plot: True
+debug_plot: False
 verbose: True
-
 #-------------DIRECTORIES------------
 train: D:\Datasets\Patches_512x512
 validation: D:\Datasets\GID15_urban\GID15\Validation
@@ -10,21 +9,20 @@ test: D:\Datasets\GID15_urban\GID15\Test
 checkpoint_directory: D:\weights\test\balanced
 #--------DEVICE--------------
 device: gpu
-
 #----NET AND CONTEXT----------
-net: Unetv2
+net: Resnet101
 load_context: False
 #-------DATA LOADING----------
-epochs: 50
-chunk_size: 10
+epochs: 64
+chunk_size: 168
 validation_chunk_size: 5
 patch_size: 224
 batch_size: 10
-augmentation: True
+augmentation: False
 #random_tps: [[510, 0.25],[350, 0.5]]
 # ------LOSS AND OPTIMIZATION----------
 loss: CEL
-opt: SGD2
+opt: ADAM1
 ignore_background: True
 #-------ALMOST NEVER TOUCH THESE--------
 freq: 1
