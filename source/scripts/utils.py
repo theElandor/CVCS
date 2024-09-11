@@ -231,7 +231,7 @@ def load_optimizer(config, net):
 		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)		
 	elif optimizer == 'ADAM1':
 		opt = torch.optim.Adam(net.parameters(), lr=0.005)
-		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=1.0)
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=2.0)
 	else:
 		raise ValueError("Optimizer name not valid.")
 	return opt,sched
