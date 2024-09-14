@@ -18,6 +18,7 @@ chunk_size: 168
 validation_chunk_size: 5
 patch_size: 224
 batch_size: 10
+random_shift: False
 augmentation: False
 #random_tps: [[510, 0.25],[350, 0.5]]
 # ------LOSS AND OPTIMIZATION----------

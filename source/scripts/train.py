@@ -18,7 +18,7 @@ image_transforms, mask_transforms = utils.load_basic_transforms(config)
 
 Loader_train = dataset.Loader(config['train'],
                               config['chunk_size'],
-                              random_shift=True, 
+                              random_shift=config['random_shift'],
                               patch_size=config['patch_size'],
                               image_transforms=image_transforms,
                               mask_transforms=mask_transforms,
