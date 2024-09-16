@@ -9,7 +9,6 @@ import nets
 from dataset import GID15
 import numpy as np
 import torch.nn as nn
-import loss
 from PIL import Image
 from torchmetrics.classification import MulticlassConfusionMatrix
 from torchmetrics.segmentation import MeanIoU
@@ -226,20 +225,16 @@ def load_optimizer(config, net):
 	optimizer = config['opt']
 	if optimizer == 'SGD1':
 		opt = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=0.00001)
-		sched = torch.optim.lr_scheduler.PolynomialLR(opt)
-		return opt, sched
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt)		
 	if optimizer == 'SGD2':
 		opt = torch.optim.SGD(net.parameters(), lr=0.006, momentum=0.9, weight_decay=0.00001)
-		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)
-		return opt, sched
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=20)		
 	elif optimizer == 'ADAM1':
-		return torch.optim.Adam(net.parameters(), lr=1e-4)
-	elif optimizer == 'ADAM2':
-		return torch.optim.Adam(net.parameters(), lr=0.00006)
-	elif optimizer == 'ADAM3':
-		return torch.optim.Adam(net.parameters(), lr=0.00001)
+		opt = torch.optim.Adam(net.parameters(), lr=0.005)
+		sched = torch.optim.lr_scheduler.PolynomialLR(opt, total_iters=config['epochs'], power=2.0)
 	else:
 		raise ValueError("Optimizer name not valid.")
+	return opt,sched
 
 def load_loss(config, device, dataset=None):
 	classes = config['num_classes']+1
