@@ -173,31 +173,15 @@ def inference(net,patch_size,dataset, indexes, device, converter, mask_only=Fals
 
 def load_network(config, device):
 	netname = config['net']
-	classes = config['num_classes']+1
-	pretrain = config.get('pretrain', False)
-	if netname == 'TSwin':
-		return nets.Swin(96,224,classes, device).to(device)
-	elif netname == 'BSwin':
-		return nets.Swin(128,224,classes, device).to(device)
-	elif netname == 'Unet':
+	classes = config['num_classes']+1	
+	if netname == 'Unet':
 		return nets.Urnet(classes).to(device)
-	elif netname == 'Fusion':
-		return nets.Fusion(classes, device).to(device)
-	elif netname == 'Unet_torch':
-		return nets.UnetTorch(device)
 	elif netname == 'Unetv2':
 		return nets.Urnetv2(classes).to(device)
-	elif netname == 'FUnet':
-		return nets.FUnet(classes).to(device)
 	elif netname == 'Resnet101':
 		return nets.DeepLabv3Resnet101(classes).to(device)
 	elif netname == 'MobileNet':
 		return nets.DeepLabV3MobileNet(classes).to(device)
-	elif netname == 'DilatedUnet':
-		return nets.DilatedUrnetv2(classes).to(device)
-	elif netname == 'Segformerino':
-		print(f"Warning: you loaded segformerino with pretrain={pretrain}, make sure it mirrors your willing.")
-		return nets.Segformerino(classes, pretrain=pretrain).to(device)
 	elif netname == 'Ensemble':
 		try:
 			return Ensemble(classes, device, config.get('ensemble_config'))

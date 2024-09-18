@@ -1,0 +1,12 @@
+net: Resnet101
+load_checkpoint: D:\weights\experiments\checkpoints\checkpoint64_Resnet101
+dataset: D:\Datasets\GID15\gid-15\GID\Test
+num_classes: 15
+patch_size: 224
+device: gpu
+verbose: True
+confusion_matrix: 'confusion.png'
+priors: 'priors.png'
+ignore_background: True
+load_context: False
+load_color_mask: False
