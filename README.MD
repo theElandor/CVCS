@@ -11,6 +11,21 @@ This virtual laboratory revolves around 4 main files:
 3) nets.py: file where you can declare and add new networks;
 3) inference.py: script used to produce segmentation masks once you trained your model.
 4) evaluation.py: script used to evaluate the performance of your model.
+
+# Dependencies
+torch==2.3.1
+pillow
+matplotlib
+PyYAML
+transformers
+tqdm
+prettytable
+scikit-learn
+numpy
+torchmetrics
+pandas
+seaborn
+
 # Quickstart
 In this tutorial we show how to setup the training of a simple network.
 You will also learn how to create a config file to customize hyperparameters and other settings.
@@ -84,6 +99,7 @@ In practice, the dataloader will divide the image into non overlapping patches o
 + *range*: with this list you can select the patches that you want to segment. In this example we selected the first 960 patches that corespond to the first full-sized image of the validation set. Every segmented patch will be saved in the ```output``` directory.
 + *mask_only*: if set to True, the output will be saved as just the segmentation mask in a .png file. If set to False, the output will be a plot that will show both the original image and coresponding mask.
 + *out_image*: if specified, the script will create a full-sized image with the generated masks.
+**You can find the configuration files used to create full size images of the official paper with U-Net in source/scripts/configs/inference. To use them, make sure to download the checkpoint and the validation set.**
 ## 4. (extra): Evaluation
 You can specify to run a evaluation loop (on the validation set) after each training epoch with the *eval* option in the training configuration file. Moreover, you can also run customized evaluation loops.
 To do this,you will need a evaluation config file. Here's an example:

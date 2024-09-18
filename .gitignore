@@ -1,6 +1,4 @@
 dataset/
-source/unet/output
-source/scripts/output
 scripts/_pycache_
 source/old_files/output
 source/scripts/lab_evaluation.ipynb
