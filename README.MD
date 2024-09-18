@@ -13,6 +13,7 @@ This virtual laboratory revolves around 4 main files:
 4) evaluation.py: script used to evaluate the performance of your model.
 
 # Dependencies
+```txt
 torch==2.3.1
 pillow
 matplotlib
@@ -25,6 +26,7 @@ numpy
 torchmetrics
 pandas
 seaborn
+```
 
 # Quickstart
 In this tutorial we show how to setup the training of a simple network.
