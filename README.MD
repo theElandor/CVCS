@@ -1,3 +1,5 @@
+# Paper
++ https://theelandor.github.io/remotesemseg.pdf
 # GID15 Virtual Lab
 This repo is an open source virtual laboratory to work on remote sensing
 image segmentation. It features easy to edit code and scripts to
