@@ -107,6 +107,7 @@ In practice, the dataloader will divide the image into non overlapping patches o
 <div align="center">
   <img src="http://theelandor.github.io/prova/images/paper.JPG" alt="alt text" width="400"/>
 </div>
+
 ## 4. (extra): Evaluation
 You can specify to run a evaluation loop (on the validation set) after each training epoch with the *eval* option in the training configuration file. Moreover, you can also run customized evaluation loops.
 To do this,you will need a evaluation config file. Here's an example:
